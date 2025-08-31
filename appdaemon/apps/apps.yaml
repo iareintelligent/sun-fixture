@@ -19,8 +19,8 @@ celestial_lighting:
   # Lutron Aurora 19 dimmer device ID
   aurora_device_id: "131f93a35892fd3c7a0cc89d3a585d9e"
   
-  # Brightness falloff for non-aligned bulbs (0.2 = 20% dimmer)
-  brightness_falloff: 0.2
+  # Brightness falloff for non-aligned bulbs (0.8 = 80% dimmer, so 20% of max)
+  brightness_falloff: 0.8
   
   # Update interval in seconds
   update_interval: 60
