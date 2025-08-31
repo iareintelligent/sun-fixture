@@ -213,14 +213,14 @@ class CelestialLighting(hass.Hass):
                     entity_id=light,
                     kelvin=kelvin,
                     brightness=int(brightness),
-                    transition=5
+                    transition=1  # Faster transition for responsive dimming
                 )
             else:
                 # Turn off lights that should be at 0%
                 if self.get_state(light) == "on":
                     self.call_service("light/turn_off",
                         entity_id=light,
-                        transition=5
+                        transition=1  # Faster transition
                     )
     
     def update_moon_lighting(self):
@@ -269,13 +269,13 @@ class CelestialLighting(hass.Hass):
                     entity_id=light,
                     rgb_color=rgb,
                     brightness=base_brightness,
-                    transition=5
+                    transition=1  # Faster transition
                 )
             else:
                 # Turn off all other lights in moon mode
                 self.call_service("light/turn_off",
                     entity_id=light,
-                    transition=5
+                    transition=1  # Faster transition
                 )
     
     def calculate_sun_color_temperature(self, elevation: float) -> int:
@@ -533,12 +533,17 @@ class CelestialLighting(hass.Hass):
         self.manual_override = True
             
         # Adjust dimmer level (0.1 to 1.0)
-        # Scale down the steps since Aurora sends large values (100-300)
-        step = 0.01 * (abs(rotation) / 100)  # Scale steps to reasonable increments
+        # Make bigger steps for noticeable changes
+        # Aurora sends values like 100-300, we want steps of about 5-10%
+        step = 0.05  # Fixed 5% step for noticeable changes
+        
         if rotation > 0:
             self.dimmer_level = min(1.0, self.dimmer_level + step)
         else:
             self.dimmer_level = max(0.1, self.dimmer_level - step)
+        
+        # Round to nearest 5% for cleaner values
+        self.dimmer_level = round(self.dimmer_level * 20) / 20
         
         self.log(f"Dimmer adjusted to: {int(self.dimmer_level * 100)}% (manual override active)")
         
