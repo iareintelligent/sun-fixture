@@ -107,22 +107,27 @@ class CelestialLighting(hass.Hass):
     def calculate_azimuth_alignment(self, light_azimuth: float, celestial_azimuth: float) -> float:
         """
         Calculate alignment factor (0-1) based on azimuth difference
-        1.0 = perfectly aligned, 0.0 = opposite direction (180° away)
-        Linear falloff from 100% to 0% based on angular distance
+        More dramatic falloff for noticeable directional effects
         """
         # Calculate angular difference (0-180 degrees)
         diff = abs(light_azimuth - celestial_azimuth)
         if diff > 180:
             diff = 360 - diff
         
-        # Linear falloff: 100% at 0°, 0% at 180°
-        # alignment = 1.0 - (diff / 180.0)
-        # 
-        # Or use cosine for smoother falloff (comment out linear for this):
-        # alignment = (math.cos(math.radians(diff)) + 1) / 2
-        
-        # Using raised cosine for natural falloff that reaches 0 at 180°
-        alignment = max(0, (math.cos(math.radians(diff)) + 1) / 2)
+        # More dramatic falloff for better visual effect
+        # Use power function for sharper contrast
+        if diff <= 45:
+            # Within 45°: Full to high brightness (100% to 70%)
+            alignment = 1.0 - (diff / 45) * 0.3
+        elif diff <= 90:
+            # 45° to 90°: Rapid falloff (70% to 20%)
+            alignment = 0.7 - ((diff - 45) / 45) * 0.5
+        elif diff <= 135:
+            # 90° to 135°: Slower falloff (20% to 5%)
+            alignment = 0.2 - ((diff - 90) / 45) * 0.15
+        else:
+            # Beyond 135°: Minimal brightness (5% to 0%)
+            alignment = max(0, 0.05 - ((diff - 135) / 45) * 0.05)
         
         return alignment
     
