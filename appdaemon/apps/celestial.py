@@ -169,7 +169,9 @@ class CelestialLighting(hass.Hass):
                 self.update_moon_lighting()
                 
         except Exception as e:
+            import traceback
             self.log(f"Error updating lights: {e}", level="ERROR")
+            self.log(f"Traceback: {traceback.format_exc()}", level="ERROR")
     
     def update_sun_lighting(self, elevation: float, azimuth: float):
         """Update lights based on sun position during daytime with directional awareness"""
