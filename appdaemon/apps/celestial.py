@@ -8,7 +8,7 @@ import appdaemon.plugins.hass.hassapi as hass
 import ephem
 import math
 from datetime import datetime, timedelta
-from typing import Dict, List, Tuple, Optional, Any
+from typing import Dict, List, Optional
 
 
 class CelestialLighting(hass.Hass):
@@ -175,8 +175,11 @@ class CelestialLighting(hass.Hass):
     
     def update_sun_lighting(self, elevation: float, azimuth: float):
         """Update lights based on sun position during daytime with directional awareness"""
-        # Calculate color temperature based on sun elevation
-        kelvin = self.calculate_sun_color_temperature(elevation)
+        # Try to get real-time sun color from weather integration
+        kelvin = self.get_realtime_sun_color(elevation)
+        if not kelvin:
+            # Fallback to calculated color temperature
+            kelvin = self.calculate_sun_color_temperature(elevation)
         
         # Calculate base brightness based on sun elevation
         base_brightness_pct = self.calculate_sun_brightness(elevation)
@@ -227,11 +230,13 @@ class CelestialLighting(hass.Hass):
         
         self.log(f"Moon position - Altitude: {altitude:.1f}°, Azimuth: {azimuth:.1f}°, Phase: {phase:.1f}%", level="DEBUG")
         
-        # Calculate RGB color based on moon altitude and phase
-        rgb = self.calculate_moon_color(altitude, phase)
+        # Try to get real-time moon color, fallback to calculated
+        rgb = self.get_realtime_moon_color(altitude, phase)
+        if not rgb:
+            rgb = self.calculate_moon_color(altitude, phase)
         
-        # Use same brightness as sun mode but apply base brightness multiplier
-        base_brightness = int(255 * self.base_brightness)  # Full brightness adjusted by dimmer
+        # Moon brightness: 60% of sun brightness, adjusted by dimmer
+        base_brightness = int(255 * 0.6 * self.base_brightness)  # 60% of full brightness
         
         # Find the 1-2 closest bulbs to moon position
         light_alignments = {}
@@ -270,13 +275,31 @@ class CelestialLighting(hass.Hass):
                 )
     
     def calculate_sun_color_temperature(self, elevation: float) -> int:
-        """Calculate color temperature in Kelvin based on sun elevation"""
-        # Clamp elevation to valid range
+        """Calculate color temperature in Kelvin based on sun elevation
+        
+        More realistic color temperatures:
+        - Sunrise/sunset (< 5°): 2000-3000K (warm orange)
+        - Golden hour (5-15°): 3000-4000K (warm white)
+        - Mid morning/afternoon (15-45°): 4000-5500K (neutral white)
+        - Noon (> 45°): 5500-6500K (cool daylight)
+        """
         elevation = max(-10, min(90, elevation))
         
-        # Map elevation (-10 to 90) to color temperature (2000K to 6500K)
-        # Linear mapping: (elevation + 10) / 100 * 4500 + 2000
-        kelvin = int(2000 + (elevation + 10) * 45)
+        if elevation < 0:
+            # Below horizon: very warm
+            kelvin = 2000
+        elif elevation < 5:
+            # Sunrise/sunset: warm orange
+            kelvin = int(2000 + (elevation / 5) * 1000)
+        elif elevation < 15:
+            # Golden hour: warm white
+            kelvin = int(3000 + ((elevation - 5) / 10) * 1000)
+        elif elevation < 45:
+            # Mid day: neutral to cool
+            kelvin = int(4000 + ((elevation - 15) / 30) * 1500)
+        else:
+            # High noon: cool daylight
+            kelvin = int(5500 + ((elevation - 45) / 45) * 1000)
         
         return min(6500, max(2000, kelvin))
     
@@ -316,24 +339,122 @@ class CelestialLighting(hass.Hass):
             "illumination": illumination
         }
     
+    def get_realtime_sun_color(self, elevation: float) -> Optional[int]:
+        """Try to get real-time sun color based on weather conditions"""
+        try:
+            # Check for cloud cover which affects sun color
+            cloud_cover = 0
+            for sensor in ["sensor.cloud_coverage", "sensor.openweathermap_cloud_coverage", "weather.home"]:
+                if sensor == "weather.home":
+                    weather_state = self.get_state(sensor)
+                    if weather_state:
+                        # Map weather conditions to approximate cloud cover
+                        conditions_map = {
+                            "sunny": 0, "clear": 0, "clear-night": 0,
+                            "partlycloudy": 30, "partly-cloudy": 30,
+                            "cloudy": 70, "fog": 90,
+                            "rainy": 80, "pouring": 90,
+                            "snowy": 85, "hail": 85,
+                            "lightning": 75, "lightning-rainy": 80
+                        }
+                        cloud_cover = conditions_map.get(weather_state, 50)
+                        break
+                else:
+                    state = self.get_state(sensor)
+                    if state and state != "unknown":
+                        cloud_cover = float(state)
+                        break
+            
+            # Adjust color temperature based on cloud cover and elevation
+            if elevation < 0:
+                base_kelvin = 2000  # Below horizon
+            elif elevation < 10:
+                # Sunrise/sunset - more orange with clouds
+                base_kelvin = 2200 - int(cloud_cover * 2)  # More orange with clouds
+            elif elevation < 30:
+                # Low sun - golden hour
+                base_kelvin = 3500 - int(cloud_cover * 5)  # Warmer with clouds
+            else:
+                # High sun - affected by clouds
+                base_kelvin = 5500 - int(cloud_cover * 10)  # Much warmer with heavy clouds
+            
+            self.log(f"Real-time sun color: {base_kelvin}K (cloud cover: {cloud_cover}%)", level="DEBUG")
+            return max(2000, min(6500, base_kelvin))
+            
+        except Exception as e:
+            self.log(f"Could not get real-time sun color: {e}", level="DEBUG")
+            return None
+    
+    def get_realtime_moon_color(self, altitude: float, phase: float) -> Optional[List[int]]:
+        """Get realistic moon color based on altitude and atmospheric conditions"""
+        try:
+            # Check for atmospheric conditions that affect moon color
+            humidity = 50  # Default
+            for sensor in ["sensor.humidity", "sensor.outdoor_humidity", "sensor.openweathermap_humidity"]:
+                state = self.get_state(sensor)
+                if state and state != "unknown":
+                    humidity = float(state)
+                    break
+            
+            # Moon color is affected by altitude and atmospheric conditions
+            # Lower altitude = more atmosphere = warmer color
+            # High humidity = more scattering = warmer color
+            
+            if altitude < 0:
+                return None  # Moon below horizon
+            elif altitude < 10:
+                # Very low moon - orange/amber due to atmosphere
+                # This is the "harvest moon" effect
+                base_r, base_g, base_b = 255, 180, 120
+            elif altitude < 30:
+                # Low moon - yellowish white
+                humidity_factor = humidity / 100
+                base_r = int(255 - 10 * (1 - humidity_factor))
+                base_g = int(240 - 20 * (1 - humidity_factor))
+                base_b = int(210 - 30 * (1 - humidity_factor))
+            else:
+                # High moon - cool white with slight blue tint
+                # This is the typical "moonlight" color
+                base_r, base_g, base_b = 226, 231, 244
+            
+            # Adjust for moon phase (dimmer during crescent)
+            phase_factor = 0.5 + (phase / 200)  # 0.5 to 1.0 based on phase
+            
+            rgb = [
+                min(255, int(base_r * phase_factor)),
+                min(255, int(base_g * phase_factor)),
+                min(255, int(base_b * phase_factor))
+            ]
+            
+            self.log(f"Real-time moon color: RGB{rgb} (altitude: {altitude:.1f}°, humidity: {humidity}%)", level="DEBUG")
+            return rgb
+            
+        except Exception as e:
+            self.log(f"Could not get real-time moon color: {e}", level="DEBUG")
+            return None
+    
     def calculate_moon_color(self, altitude: float, phase: float) -> List[int]:
-        """Calculate RGB color based on moon altitude and phase"""
-        # Base color: blue-white for high moon, amber for low moon
-        if altitude > 30:
-            # High moon: cool blue-white
-            base_r, base_g, base_b = 200, 210, 255
+        """Calculate RGB color based on moon altitude - more realistic moon colors"""
+        # Moon should be cooler/whiter than sun, with slight blue tint
+        if altitude > 45:
+            # High moon: cool blue-white (moonlight color)
+            base_r, base_g, base_b = 230, 235, 255
+        elif altitude > 15:
+            # Mid altitude: neutral cool white
+            base_r, base_g, base_b = 240, 245, 255
         elif altitude > 0:
-            # Mid altitude: neutral white
-            base_r, base_g, base_b = 255, 240, 220
+            # Low altitude: slightly warm but still cool
+            base_r, base_g, base_b = 250, 245, 235
         else:
-            # Low/below horizon: warm amber
-            base_r, base_g, base_b = 255, 200, 150
+            # Below horizon: dim warm
+            base_r, base_g, base_b = 255, 230, 200
         
-        # Adjust intensity based on phase (fuller moon = more intense)
-        intensity = phase / 100
-        r = int(base_r * (0.3 + 0.7 * intensity))
-        g = int(base_g * (0.3 + 0.7 * intensity))
-        b = int(base_b * (0.3 + 0.7 * intensity))
+        # Less dramatic intensity adjustment based on phase
+        # Even new moon has some light reflection
+        intensity = 0.6 + 0.4 * (phase / 100)  # Range from 60% to 100%
+        r = int(base_r * intensity)
+        g = int(base_g * intensity)
+        b = int(base_b * intensity)
         
         return [min(255, r), min(255, g), min(255, b)]
     
