@@ -195,16 +195,24 @@ class CelestialLighting(hass.Hass):
         
         # Apply to all directional lights
         for light, brightness in brightness_map.items():
-            if self.get_state(light) == "on":
-                brightness_pct = int(brightness * 100 / 255)
+            brightness_pct = int(brightness * 100 / 255)
+            
+            # Turn on lights with brightness > 0, turn off others
+            if brightness > 0:
                 self.log(f"  {light}: {brightness_pct}% brightness", level="DEBUG")
-                
                 self.call_service("light/turn_on",
                     entity_id=light,
                     kelvin=kelvin,
                     brightness=int(brightness),
                     transition=5
                 )
+            else:
+                # Turn off lights that should be at 0%
+                if self.get_state(light) == "on":
+                    self.call_service("light/turn_off",
+                        entity_id=light,
+                        transition=5
+                    )
     
     def update_moon_lighting(self):
         """Update lights based on moon position - only light 1-2 closest bulbs"""
@@ -240,26 +248,24 @@ class CelestialLighting(hass.Hass):
                 lights_to_activate.append(light)
         
         self.log(f"Moon lighting - RGB: {rgb}, Brightness: {int(base_brightness * 100 / 255)}%")
-        self.log(f"Moon facing lights: {', '.join([l for l, _ in closest_lights[:len(lights_to_activate)]])}")
+        self.log(f"Moon facing lights: {', '.join(lights_to_activate)}")
         
         # Update all lights
         for light in self.light_directions.keys():
-            if light in [l for l, _ in lights_to_activate]:
+            if light in lights_to_activate:
                 # Turn on closest lights
-                if self.get_state(light) == "on":
-                    self.call_service("light/turn_on",
-                        entity_id=light,
-                        rgb_color=rgb,
-                        brightness=base_brightness,
-                        transition=5
-                    )
+                self.call_service("light/turn_on",
+                    entity_id=light,
+                    rgb_color=rgb,
+                    brightness=base_brightness,
+                    transition=5
+                )
             else:
                 # Turn off all other lights in moon mode
-                if self.get_state(light) == "on":
-                    self.call_service("light/turn_off",
-                        entity_id=light,
-                        transition=5
-                    )
+                self.call_service("light/turn_off",
+                    entity_id=light,
+                    transition=5
+                )
     
     def calculate_sun_color_temperature(self, elevation: float) -> int:
         """Calculate color temperature in Kelvin based on sun elevation"""
