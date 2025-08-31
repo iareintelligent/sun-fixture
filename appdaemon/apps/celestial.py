@@ -191,7 +191,9 @@ class CelestialLighting(hass.Hass):
         # Calculate directional brightness for each light
         brightness_map = self.calculate_directional_brightness(base_brightness, azimuth)
         
-        self.log(f"Sun lighting - Kelvin: {kelvin}K, Base brightness: {base_brightness_pct}% (adjusted: {int(base_brightness_pct * self.base_brightness)}%), Azimuth: {azimuth:.1f}°")
+        # Calculate actual brightness being applied
+        actual_brightness_pct = int((base_brightness * 100) / 255)
+        self.log(f"Sun lighting - Kelvin: {kelvin}K, Base brightness: {base_brightness_pct:.1f}% × {int(self.base_brightness * 100)}% dimmer = {actual_brightness_pct}% actual, Azimuth: {azimuth:.1f}°")
         
         # Find the brightest light(s) for logging
         max_brightness = max(brightness_map.values())
@@ -204,7 +206,8 @@ class CelestialLighting(hass.Hass):
             
             # Turn on lights with brightness > 0, turn off others
             if brightness > 0:
-                self.log(f"  {light}: {brightness_pct}% brightness", level="DEBUG")
+                # Log at INFO level so we can see it
+                self.log(f"  Setting {light}: {brightness_pct}% brightness (value: {int(brightness)})")
                 self.call_service("light/turn_on",
                     entity_id=light,
                     kelvin=kelvin,
