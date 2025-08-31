@@ -349,13 +349,18 @@ class CelestialLighting(hass.Hass):
         
         # Parse event type - different formats for different integrations
         event_type = data.get("type", data.get("command", ""))
+        subtype = data.get("subtype", "")
         
-        # Button press cycles through modes
-        if event_type in ["click", "button_1_press", "button_1_click", "on"]:
+        # Button press cycles through modes (short_release is the actual button release)
+        if event_type in ["short_release", "click", "button_1_press", "button_1_click", "on"]:
             self.cycle_lighting_mode()
-        # Rotation adjusts brightness
-        elif event_type in ["rotation", "dial_rotate", "step_with_on_off"]:
-            self.handle_dimmer_rotation(data)
+        # Rotation adjusts brightness (start event with clock_wise or counter_clock_wise)
+        elif event_type == "start" and subtype in ["clock_wise", "counter_clock_wise"]:
+            # Extract steps for rotation amount
+            steps = data.get("steps", 0)
+            if subtype == "counter_clock_wise":
+                steps = -steps
+            self.handle_dimmer_rotation({"value": steps})
     
     def cycle_lighting_mode(self):
         """Cycle through lighting modes: sun -> moon -> off -> sun"""
@@ -385,7 +390,8 @@ class CelestialLighting(hass.Hass):
             return
             
         # Adjust base brightness (0.0 to 1.0)
-        step = 0.05 if abs(rotation) < 10 else 0.1
+        # Scale down the steps since Aurora sends large values (100-300)
+        step = 0.01 * (abs(rotation) / 100)  # Scale steps to reasonable increments
         if rotation > 0:
             self.base_brightness = min(1.0, self.base_brightness + step)
         else:
