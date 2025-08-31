@@ -22,7 +22,6 @@ class CelestialLighting(hass.Hass):
         self.directional_lights = self.args.get("directional_lights", {})
         self.aurora_device_id = self.args.get("aurora_device_id", None)
         self.update_interval = self.args.get("update_interval", 60)
-        self.brightness_falloff = self.args.get("brightness_falloff", 0.2)  # 20% dimmer for non-aligned
         
         # Location configuration (fallback to HA's location)
         location = self.args.get("location", {})
@@ -104,58 +103,45 @@ class CelestialLighting(hass.Hass):
     def calculate_azimuth_alignment(self, light_azimuth: float, celestial_azimuth: float) -> float:
         """
         Calculate alignment factor (0-1) based on azimuth difference
-        1.0 = perfectly aligned, 0.0 = opposite direction
+        1.0 = perfectly aligned, 0.0 = opposite direction (180° away)
+        Linear falloff from 100% to 0% based on angular distance
         """
         # Calculate angular difference (0-180 degrees)
         diff = abs(light_azimuth - celestial_azimuth)
         if diff > 180:
             diff = 360 - diff
         
-        # Convert to alignment factor using cosine
-        # cos(0°) = 1.0 (perfect alignment)
-        # cos(90°) = 0.0 (perpendicular)
-        # cos(180°) = -1.0 (opposite)
-        alignment = math.cos(math.radians(diff))
+        # Linear falloff: 100% at 0°, 0% at 180°
+        # alignment = 1.0 - (diff / 180.0)
+        # 
+        # Or use cosine for smoother falloff (comment out linear for this):
+        # alignment = (math.cos(math.radians(diff)) + 1) / 2
         
-        # Normalize to 0-1 range with minimum threshold
-        # We want some light even from opposite bulbs
-        alignment = max(0, alignment)  # Clamp negative values to 0
+        # Using raised cosine for natural falloff that reaches 0 at 180°
+        alignment = max(0, (math.cos(math.radians(diff)) + 1) / 2)
         
         return alignment
     
     def calculate_directional_brightness(self, base_brightness: float, celestial_azimuth: float) -> Dict[str, float]:
         """
         Calculate individual brightness for each directional light based on celestial body position
+        Each bulb's brightness is directly proportional to its alignment (0-100% based on angle)
         """
         brightness_map = {}
         
-        # Calculate alignment for each light
-        alignments = {}
-        max_alignment = 0
-        
         for light, light_azimuth in self.light_directions.items():
+            # Get alignment factor (1.0 at sun position, 0.0 at opposite side)
             alignment = self.calculate_azimuth_alignment(light_azimuth, celestial_azimuth)
-            alignments[light] = alignment
-            max_alignment = max(max_alignment, alignment)
-        
-        # Normalize brightness based on alignment
-        for light, alignment in alignments.items():
-            if alignment == max_alignment:
-                # Most aligned bulb(s) get full brightness
-                brightness_map[light] = base_brightness
-            else:
-                # Other bulbs are dimmed based on alignment
-                # Minimum brightness is (1 - brightness_falloff) * base_brightness
-                min_brightness = base_brightness * (1 - self.brightness_falloff)
-                
-                # Scale between min and max based on alignment
-                if max_alignment > 0:
-                    relative_alignment = alignment / max_alignment
-                else:
-                    relative_alignment = 0
-                
-                brightness = min_brightness + (base_brightness - min_brightness) * relative_alignment
-                brightness_map[light] = brightness
+            
+            # Brightness is directly proportional to alignment
+            # Full alignment = full brightness, opposite = 0% brightness
+            brightness = base_brightness * alignment
+            brightness_map[light] = brightness
+            
+            # Log individual bulb brightness for debugging
+            if brightness > 0:
+                brightness_pct = int(brightness * 100 / 255)
+                self.log(f"  {light}: {brightness_pct}% (alignment: {alignment:.2f})", level="DEBUG")
         
         return brightness_map
     
