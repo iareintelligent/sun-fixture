@@ -487,13 +487,14 @@ class CelestialLighting(hass.Hass):
         # Button press cycles through modes (short_release is the actual button release)
         if event_type in ["short_release", "click", "button_1_press", "button_1_click", "on"]:
             self.cycle_lighting_mode()
-        # Rotation adjusts brightness (start event with clock_wise or counter_clock_wise)
+        # Rotation adjusts brightness (only respond to "start" event, ignore "repeat")
         elif event_type == "start" and subtype in ["clock_wise", "counter_clock_wise"]:
-            # Extract steps for rotation amount
-            steps = data.get("steps", 0)
+            # Determine rotation direction
             if subtype == "counter_clock_wise":
-                steps = -steps
-            self.handle_dimmer_rotation({"value": steps})
+                direction = -1
+            else:
+                direction = 1
+            self.handle_dimmer_rotation({"direction": direction})
     
     def cycle_lighting_mode(self):
         """Cycle through lighting modes: sun -> moon -> off -> sun"""
@@ -523,21 +524,19 @@ class CelestialLighting(hass.Hass):
     
     def handle_dimmer_rotation(self, data):
         """Handle dimmer rotation to adjust dimmer level"""
-        # Extract rotation amount (different keys for different integrations)
-        rotation = data.get("value", data.get("params", {}).get("step_size", 0))
+        # Get rotation direction
+        direction = data.get("direction", 0)
         
-        if rotation == 0:
+        if direction == 0:
             return
         
         # Mark that user has manually adjusted
         self.manual_override = True
             
-        # Adjust dimmer level (0.1 to 1.0)
-        # Make bigger steps for noticeable changes
-        # Aurora sends values like 100-300, we want steps of about 5-10%
-        step = 0.05  # Fixed 5% step for noticeable changes
+        # Adjust dimmer level with 5% steps for noticeable changes
+        step = 0.05  # 5% per click
         
-        if rotation > 0:
+        if direction > 0:
             self.dimmer_level = min(1.0, self.dimmer_level + step)
         else:
             self.dimmer_level = max(0.1, self.dimmer_level - step)
