@@ -30,9 +30,10 @@ class CelestialLighting(hass.Hass):
         
         # State management
         self.lighting_mode = "sun"  # "sun", "moon", or "off"
-        self.base_brightness = 1.0  # Base brightness multiplier (0.0 to 1.0)
+        self.dimmer_level = 1.0  # Dimmer level controlled by Aurora (0.0 to 1.0)
         self.last_sun_elevation = None
         self.last_moon_phase = None
+        self.manual_override = False  # Track if user has manually adjusted brightness
         
         # Parse directional lights configuration
         self.light_directions = {}
@@ -151,7 +152,7 @@ class CelestialLighting(hass.Hass):
     def update_lights(self, kwargs):
         """Main update loop - called every update_interval seconds"""
         try:
-            self.log(f"Update lights - Mode: {self.lighting_mode}, Base brightness: {self.base_brightness:.1f}", level="DEBUG")
+            self.log(f"Update lights - Mode: {self.lighting_mode}, Dimmer: {int(self.dimmer_level * 100)}%", level="DEBUG")
             
             if self.lighting_mode == "off":
                 # Turn off all lights
@@ -185,15 +186,15 @@ class CelestialLighting(hass.Hass):
         base_brightness_pct = self.calculate_sun_brightness(elevation)
         base_brightness = int(base_brightness_pct * 255 / 100)
         
-        # Apply base brightness multiplier
-        base_brightness = int(base_brightness * self.base_brightness)
+        # Apply dimmer level multiplier
+        base_brightness = int(base_brightness * self.dimmer_level)
         
         # Calculate directional brightness for each light
         brightness_map = self.calculate_directional_brightness(base_brightness, azimuth)
         
         # Calculate actual brightness being applied
         actual_brightness_pct = int((base_brightness * 100) / 255)
-        self.log(f"Sun lighting - Kelvin: {kelvin}K, Base brightness: {base_brightness_pct:.1f}% × {int(self.base_brightness * 100)}% dimmer = {actual_brightness_pct}% actual, Azimuth: {azimuth:.1f}°")
+        self.log(f"Sun lighting - Kelvin: {kelvin}K, Base: {base_brightness_pct:.1f}% × Dimmer: {int(self.dimmer_level * 100)}% = {actual_brightness_pct}% actual, Azimuth: {azimuth:.1f}°")
         
         # Find the brightest light(s) for logging
         max_brightness = max(brightness_map.values())
@@ -239,7 +240,7 @@ class CelestialLighting(hass.Hass):
             rgb = self.calculate_moon_color(altitude, phase)
         
         # Moon brightness: 60% of sun brightness, adjusted by dimmer
-        base_brightness = int(255 * 0.6 * self.base_brightness)  # 60% of full brightness
+        base_brightness = int(255 * 0.6 * self.dimmer_level)  # 60% of full brightness
         
         # Find the 1-2 closest bulbs to moon position
         light_alignments = {}
@@ -257,7 +258,7 @@ class CelestialLighting(hass.Hass):
             if alignment > 0.5:  # Only if more than 50% aligned
                 lights_to_activate.append(light)
         
-        self.log(f"Moon lighting - RGB: {rgb}, Brightness: {int(base_brightness * 100 / 255)}%")
+        self.log(f"Moon lighting - RGB: {rgb}, Base: 60% × Dimmer: {int(self.dimmer_level * 100)}% = {int(base_brightness * 100 / 255)}% actual")
         self.log(f"Moon facing lights: {', '.join(lights_to_activate)}")
         
         # Update all lights
@@ -500,6 +501,13 @@ class CelestialLighting(hass.Hass):
         current_index = modes.index(self.lighting_mode)
         self.lighting_mode = modes[(current_index + 1) % len(modes)]
         
+        # Reset dimmer to 100% when changing modes (optional behavior)
+        # Comment out these lines if you want dimmer to persist across mode changes
+        if self.manual_override:
+            self.log(f"Resetting dimmer to 100% (was {int(self.dimmer_level * 100)}%)")
+            self.dimmer_level = 1.0
+            self.manual_override = False
+        
         self.log(f"Lighting mode changed to: {self.lighting_mode.upper()}")
         
         # Flash lights to indicate mode
@@ -514,22 +522,25 @@ class CelestialLighting(hass.Hass):
         self.update_lights({})
     
     def handle_dimmer_rotation(self, data):
-        """Handle dimmer rotation to adjust base brightness"""
+        """Handle dimmer rotation to adjust dimmer level"""
         # Extract rotation amount (different keys for different integrations)
         rotation = data.get("value", data.get("params", {}).get("step_size", 0))
         
         if rotation == 0:
             return
+        
+        # Mark that user has manually adjusted
+        self.manual_override = True
             
-        # Adjust base brightness (0.0 to 1.0)
+        # Adjust dimmer level (0.1 to 1.0)
         # Scale down the steps since Aurora sends large values (100-300)
         step = 0.01 * (abs(rotation) / 100)  # Scale steps to reasonable increments
         if rotation > 0:
-            self.base_brightness = min(1.0, self.base_brightness + step)
+            self.dimmer_level = min(1.0, self.dimmer_level + step)
         else:
-            self.base_brightness = max(0.1, self.base_brightness - step)
+            self.dimmer_level = max(0.1, self.dimmer_level - step)
         
-        self.log(f"Base brightness adjusted to: {int(self.base_brightness * 100)}%")
+        self.log(f"Dimmer adjusted to: {int(self.dimmer_level * 100)}% (manual override active)")
         
         # Immediately update lights with new brightness
         self.update_lights({})
