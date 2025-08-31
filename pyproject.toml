@@ -1,0 +1,23 @@
+[project]
+name = "celestial-lighting"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "appdaemon>=4.5.11",
+    "ephem>=4.2",
+    "python-dotenv>=1.1.1",
+    "websocket-client>=1.8.0",
+]
+
+[dependency-groups]
+dev = [
+    "black>=25.1.0",
+    "mypy>=1.17.1",
+    "pre-commit>=4.3.0",
+    "pytest>=8.4.1",
+    "pytest-asyncio>=1.1.0",
+    "pytest-mock>=3.14.1",
+    "ruff>=0.12.11",
+]

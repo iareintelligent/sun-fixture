@@ -1,0 +1,31 @@
+celestial_lighting:
+  module: celestial
+  class: CelestialLighting
+  
+  # Directional lights mapped to compass directions
+  # Multiple bulbs can be assigned to the same direction if needed
+  directional_lights:
+    NNW: 
+      - light.sun_nnw_bulb
+      - light.sun_nnw_bulb_2
+    N: light.sun_north
+    E: light.sun_e_bulb
+    S: light.sun_s_bulb
+    SSW: 
+      - light.sun_ssw_bulb
+      - light.sun_ssw_bulb_2
+    W: light.sun_west_bulb
+  
+  # Lutron Aurora 19 dimmer device ID
+  aurora_device_id: "131f93a35892fd3c7a0cc89d3a585d9e"
+  
+  # Brightness falloff for non-aligned bulbs (0.2 = 20% dimmer)
+  brightness_falloff: 0.2
+  
+  # Update interval in seconds
+  update_interval: 60
+  
+  # Seattle location (from your Home Assistant)
+  location:
+    latitude: 47.6763
+    longitude: -122.3233
