@@ -117,18 +117,24 @@ deploy_ssh() {
         exit 1
     fi
     
-    # Create AppDaemon directories if they don't exist
+    # Create AppDaemon directories in BOTH locations
     ssh "${HA_USER}@${HA_HOST}" "mkdir -p ${HA_SSH_PATH}/appdaemon/apps ${HA_SSH_PATH}/appdaemon/logs"
+    ssh "${HA_USER}@${HA_HOST}" "mkdir -p /addon_configs/a0d7b954_appdaemon/apps /addon_configs/a0d7b954_appdaemon/logs"
     
     # Create backup
-    create_backup "$HA_SSH_PATH"
+    create_backup "/addon_configs/a0d7b954_appdaemon"
     
-    # Copy files
-    print_info "Copying celestial.py..."
-    scp appdaemon/apps/celestial.py "${HA_USER}@${HA_HOST}:${HA_SSH_PATH}/appdaemon/apps/"
+    # Copy files to addon_configs directory (the actual working directory)
+    print_info "Copying celestial.py to addon directory..."
+    scp appdaemon/apps/celestial.py "${HA_USER}@${HA_HOST}:/addon_configs/a0d7b954_appdaemon/apps/"
     
-    print_info "Copying apps.yaml..."
-    scp appdaemon/apps/apps.yaml "${HA_USER}@${HA_HOST}:${HA_SSH_PATH}/appdaemon/apps/"
+    print_info "Copying apps.yaml to addon directory..."
+    scp appdaemon/apps/apps.yaml "${HA_USER}@${HA_HOST}:/addon_configs/a0d7b954_appdaemon/apps/"
+    
+    # Also copy to /config/apps for compatibility
+    print_info "Copying to /config/apps for compatibility..."
+    scp appdaemon/apps/celestial.py "${HA_USER}@${HA_HOST}:${HA_SSH_PATH}/apps/"
+    scp appdaemon/apps/apps.yaml "${HA_USER}@${HA_HOST}:${HA_SSH_PATH}/apps/"
     
     print_success "Files deployed successfully via SSH!"
 }

@@ -29,8 +29,8 @@ class CelestialLighting(hass.Hass):
         self.longitude = location.get("longitude", self.get_state("zone.home", attribute="longitude"))
         
         # State management
-        self.override_mode = False
-        self.manual_brightness = None
+        self.lighting_mode = "sun"  # "sun", "moon", or "off"
+        self.base_brightness = 1.0  # Base brightness multiplier (0.0 to 1.0)
         self.last_sun_elevation = None
         self.last_moon_phase = None
         
@@ -67,7 +67,10 @@ class CelestialLighting(hass.Hass):
         
         # Listen for Aurora dimmer events if configured
         if self.aurora_device_id:
+            # Try multiple event types for Aurora dimmer
             self.listen_event(self.handle_aurora_event, "hue_event", device_id=self.aurora_device_id)
+            self.listen_event(self.handle_aurora_event, "zha_event", device_id=self.aurora_device_id)
+            self.listen_event(self.handle_aurora_event, "deconz_event", device_id=self.aurora_device_id)
             self.log(f"Listening for Aurora dimmer events: {self.aurora_device_id}")
         
         self.log(f"Celestial Lighting initialized for {len(self.light_directions)} directional lights")
@@ -147,21 +150,22 @@ class CelestialLighting(hass.Hass):
     
     def update_lights(self, kwargs):
         """Main update loop - called every update_interval seconds"""
-        if self.override_mode:
-            self.log("Override mode active, skipping automatic update", level="DEBUG")
-            return
-            
         try:
-            # Get sun position from Home Assistant
-            sun_state = self.get_state("sun.sun")
-            sun_elevation = float(self.get_state("sun.sun", attribute="elevation"))
-            sun_azimuth = float(self.get_state("sun.sun", attribute="azimuth"))
+            self.log(f"Update lights - Mode: {self.lighting_mode}, Base brightness: {self.base_brightness:.1f}", level="DEBUG")
             
-            self.log(f"Sun position - Elevation: {sun_elevation:.1f}°, Azimuth: {sun_azimuth:.1f}°", level="DEBUG")
-            
-            if sun_elevation > -10:  # Sun is above or near horizon
+            if self.lighting_mode == "off":
+                # Turn off all lights
+                for light in self.light_directions.keys():
+                    if self.get_state(light) == "on":
+                        self.call_service("light/turn_off", entity_id=light)
+                return
+            elif self.lighting_mode == "sun":
+                # Get sun position from Home Assistant
+                sun_elevation = float(self.get_state("sun.sun", attribute="elevation"))
+                sun_azimuth = float(self.get_state("sun.sun", attribute="azimuth"))
+                self.log(f"Sun position - Elevation: {sun_elevation:.1f}°, Azimuth: {sun_azimuth:.1f}°", level="DEBUG")
                 self.update_sun_lighting(sun_elevation, sun_azimuth)
-            else:  # Sun is well below horizon, use moon lighting
+            elif self.lighting_mode == "moon":
                 self.update_moon_lighting()
                 
         except Exception as e:
@@ -176,10 +180,13 @@ class CelestialLighting(hass.Hass):
         base_brightness_pct = self.calculate_sun_brightness(elevation)
         base_brightness = int(base_brightness_pct * 255 / 100)
         
+        # Apply base brightness multiplier
+        base_brightness = int(base_brightness * self.base_brightness)
+        
         # Calculate directional brightness for each light
         brightness_map = self.calculate_directional_brightness(base_brightness, azimuth)
         
-        self.log(f"Sun lighting - Kelvin: {kelvin}K, Base brightness: {base_brightness_pct}%, Azimuth: {azimuth:.1f}°")
+        self.log(f"Sun lighting - Kelvin: {kelvin}K, Base brightness: {base_brightness_pct}% (adjusted: {int(base_brightness_pct * self.base_brightness)}%), Azimuth: {azimuth:.1f}°")
         
         # Find the brightest light(s) for logging
         max_brightness = max(brightness_map.values())
@@ -200,7 +207,7 @@ class CelestialLighting(hass.Hass):
                 )
     
     def update_moon_lighting(self):
-        """Update lights based on moon position during nighttime with directional awareness"""
+        """Update lights based on moon position - only light 1-2 closest bulbs"""
         # Calculate moon position and phase
         moon_data = self.get_moon_position()
         altitude = moon_data["altitude"]
@@ -213,32 +220,46 @@ class CelestialLighting(hass.Hass):
         # Calculate RGB color based on moon altitude and phase
         rgb = self.calculate_moon_color(altitude, phase)
         
-        # Calculate base brightness based on moon phase and altitude
-        base_brightness_pct = self.calculate_moon_brightness(altitude, illumination)
-        base_brightness = int(base_brightness_pct * 255 / 100)
+        # Use same brightness as sun mode but apply base brightness multiplier
+        base_brightness = int(255 * self.base_brightness)  # Full brightness adjusted by dimmer
         
-        # Calculate directional brightness for each light
-        brightness_map = self.calculate_directional_brightness(base_brightness, azimuth)
+        # Find the 1-2 closest bulbs to moon position
+        light_alignments = {}
+        for light, light_azimuth in self.light_directions.items():
+            alignment = self.calculate_azimuth_alignment(light_azimuth, azimuth)
+            light_alignments[light] = alignment
         
-        self.log(f"Moon lighting - RGB: {rgb}, Base brightness: {base_brightness_pct}%, Azimuth: {azimuth:.1f}°")
+        # Sort by alignment and get top 2
+        sorted_lights = sorted(light_alignments.items(), key=lambda x: x[1], reverse=True)
+        closest_lights = sorted_lights[:2]  # Get top 2 aligned lights
         
-        # Find the brightest light(s) for logging
-        max_brightness = max(brightness_map.values())
-        brightest_lights = [light for light, br in brightness_map.items() if br == max_brightness]
-        self.log(f"Brightest lights (facing moon): {', '.join(brightest_lights)}")
+        # Only light the closest 1-2 bulbs if they're reasonably aligned
+        lights_to_activate = []
+        for light, alignment in closest_lights:
+            if alignment > 0.5:  # Only if more than 50% aligned
+                lights_to_activate.append(light)
         
-        # Apply to all directional lights
-        for light, brightness in brightness_map.items():
-            if self.get_state(light) == "on":
-                brightness_pct = int(brightness * 100 / 255)
-                self.log(f"  {light}: {brightness_pct}% brightness", level="DEBUG")
-                
-                self.call_service("light/turn_on",
-                    entity_id=light,
-                    rgb_color=rgb,
-                    brightness=int(brightness),
-                    transition=5
-                )
+        self.log(f"Moon lighting - RGB: {rgb}, Brightness: {int(base_brightness * 100 / 255)}%")
+        self.log(f"Moon facing lights: {', '.join([l for l, _ in closest_lights[:len(lights_to_activate)]])}")
+        
+        # Update all lights
+        for light in self.light_directions.keys():
+            if light in [l for l, _ in lights_to_activate]:
+                # Turn on closest lights
+                if self.get_state(light) == "on":
+                    self.call_service("light/turn_on",
+                        entity_id=light,
+                        rgb_color=rgb,
+                        brightness=base_brightness,
+                        transition=5
+                    )
+            else:
+                # Turn off all other lights in moon mode
+                if self.get_state(light) == "on":
+                    self.call_service("light/turn_off",
+                        entity_id=light,
+                        transition=5
+                    )
     
     def calculate_sun_color_temperature(self, elevation: float) -> int:
         """Calculate color temperature in Kelvin based on sun elevation"""
@@ -324,62 +345,56 @@ class CelestialLighting(hass.Hass):
     
     def handle_aurora_event(self, event_name, data, kwargs):
         """Handle events from Aurora dimmer"""
-        self.log(f"Aurora event received: {data}", level="DEBUG")
+        self.log(f"Aurora event received: {event_name} - {data}")
         
-        # Parse event type
-        event_type = data.get("type", "")
+        # Parse event type - different formats for different integrations
+        event_type = data.get("type", data.get("command", ""))
         
-        if event_type == "click":
-            # Toggle override mode
-            self.toggle_override_mode()
-        elif event_type == "rotation":
-            # Manual brightness control if in override mode
-            if self.override_mode:
-                self.handle_manual_brightness(data)
+        # Button press cycles through modes
+        if event_type in ["click", "button_1_press", "button_1_click", "on"]:
+            self.cycle_lighting_mode()
+        # Rotation adjusts brightness
+        elif event_type in ["rotation", "dial_rotate", "step_with_on_off"]:
+            self.handle_dimmer_rotation(data)
     
-    def toggle_override_mode(self):
-        """Toggle manual override mode on/off"""
-        self.override_mode = not self.override_mode
+    def cycle_lighting_mode(self):
+        """Cycle through lighting modes: sun -> moon -> off -> sun"""
+        modes = ["sun", "moon", "off"]
+        current_index = modes.index(self.lighting_mode)
+        self.lighting_mode = modes[(current_index + 1) % len(modes)]
         
-        if self.override_mode:
-            self.log("Override mode ENABLED - Manual control active")
-            # Flash lights to indicate override mode
-            self.flash_lights(2, [255, 100, 100])  # Red flash
+        self.log(f"Lighting mode changed to: {self.lighting_mode.upper()}")
+        
+        # Flash lights to indicate mode
+        if self.lighting_mode == "sun":
+            self.flash_lights(1, [255, 200, 100])  # Warm white flash
+        elif self.lighting_mode == "moon":
+            self.flash_lights(1, [100, 100, 255])  # Blue flash
+        elif self.lighting_mode == "off":
+            self.flash_lights(1, [255, 0, 0])  # Red flash
+        
+        # Immediately update lights
+        self.update_lights({})
+    
+    def handle_dimmer_rotation(self, data):
+        """Handle dimmer rotation to adjust base brightness"""
+        # Extract rotation amount (different keys for different integrations)
+        rotation = data.get("value", data.get("params", {}).get("step_size", 0))
+        
+        if rotation == 0:
+            return
+            
+        # Adjust base brightness (0.0 to 1.0)
+        step = 0.05 if abs(rotation) < 10 else 0.1
+        if rotation > 0:
+            self.base_brightness = min(1.0, self.base_brightness + step)
         else:
-            self.log("Override mode DISABLED - Returning to celestial control")
-            self.manual_brightness = None
-            # Flash lights to indicate auto mode
-            self.flash_lights(2, [100, 255, 100])  # Green flash
-            # Immediately update lights
-            self.update_lights({})
-    
-    def handle_manual_brightness(self, data):
-        """Handle manual brightness adjustment from Aurora dimmer"""
-        # Extract rotation amount
-        rotation = data.get("value", 0)
+            self.base_brightness = max(0.1, self.base_brightness - step)
         
-        # Update manual brightness
-        if self.manual_brightness is None:
-            # Get current brightness from first light
-            first_light = list(self.light_directions.keys())[0] if self.light_directions else None
-            if first_light:
-                current = self.get_state(first_light, attribute="brightness")
-                self.manual_brightness = current if current else 128
+        self.log(f"Base brightness adjusted to: {int(self.base_brightness * 100)}%")
         
-        # Adjust brightness
-        self.manual_brightness = max(1, min(255, self.manual_brightness + rotation))
-        brightness_pct = int(self.manual_brightness * 100 / 255)
-        
-        self.log(f"Manual brightness: {brightness_pct}%")
-        
-        # Apply to all lights uniformly in override mode
-        for light in self.light_directions.keys():
-            if self.get_state(light) == "on":
-                self.call_service("light/turn_on",
-                    entity_id=light,
-                    brightness=self.manual_brightness,
-                    transition=0.5
-                )
+        # Immediately update lights with new brightness
+        self.update_lights({})
     
     def flash_lights(self, count: int, color: List[int]):
         """Flash lights with specified color to provide feedback"""
