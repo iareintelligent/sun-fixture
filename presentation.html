@@ -1,0 +1,1109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sun Fixture — How It Works</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap');
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --sunrise: #ff7e5f;
+            --noon: #56ccf2;
+            --sunset: #f2994a;
+            --night: #2d3561;
+            --moon: #b8c6db;
+            --accent: #6c63ff;
+            --bg: #0f0f1a;
+            --card: #1a1a2e;
+            --text: #e0e0e0;
+            --text-bright: #ffffff;
+        }
+
+        html {
+            scroll-behavior: smooth;
+            scroll-snap-type: y mandatory;
+        }
+
+        body {
+            font-family: 'Nunito', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            overflow-x: hidden;
+        }
+
+        /* ── NAV ── */
+        nav {
+            position: fixed;
+            top: 0;
+            width: 100%;
+            z-index: 100;
+            background: rgba(15, 15, 26, 0.85);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+            padding: 12px 0;
+        }
+        nav ul {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            list-style: none;
+            flex-wrap: wrap;
+            padding: 0 16px;
+        }
+        nav a {
+            color: var(--text);
+            text-decoration: none;
+            font-size: 0.82rem;
+            font-weight: 600;
+            padding: 6px 14px;
+            border-radius: 20px;
+            transition: all 0.3s;
+        }
+        nav a:hover, nav a.active {
+            background: var(--accent);
+            color: #fff;
+        }
+
+        /* ── SLIDES ── */
+        .slide {
+            min-height: 100vh;
+            scroll-snap-align: start;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 80px 24px 40px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .slide-inner {
+            max-width: 900px;
+            width: 100%;
+            z-index: 2;
+        }
+
+        h1 {
+            font-size: clamp(2.2rem, 5vw, 3.6rem);
+            font-weight: 800;
+            margin-bottom: 16px;
+            line-height: 1.15;
+        }
+        h2 {
+            font-size: clamp(1.6rem, 3.5vw, 2.4rem);
+            font-weight: 700;
+            margin-bottom: 20px;
+        }
+        .subtitle {
+            font-size: clamp(1rem, 2vw, 1.3rem);
+            color: #aaa;
+            max-width: 600px;
+            line-height: 1.6;
+        }
+
+        /* ── HERO ── */
+        #hero { background: linear-gradient(135deg, #0f0f1a 0%, #1a1a3e 50%, #0f0f1a 100%); text-align: center; }
+        #hero h1 span { background: linear-gradient(135deg, #ff7e5f, #feb47b, #56ccf2); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .hero-icon { font-size: 5rem; margin-bottom: 20px; animation: float 3s ease-in-out infinite; }
+        @keyframes float { 0%,100%{ transform: translateY(0); } 50%{ transform: translateY(-14px); } }
+
+        .badge {
+            display: inline-block;
+            background: rgba(108,99,255,0.15);
+            border: 1px solid rgba(108,99,255,0.3);
+            color: var(--accent);
+            font-size: 0.8rem;
+            font-weight: 700;
+            padding: 6px 16px;
+            border-radius: 20px;
+            margin-bottom: 20px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        /* ── CARDS ── */
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 20px;
+            margin-top: 28px;
+        }
+        .card {
+            background: var(--card);
+            border-radius: 16px;
+            padding: 28px 24px;
+            border: 1px solid rgba(255,255,255,0.05);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+        .card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 40px rgba(0,0,0,0.4);
+        }
+        .card-icon { font-size: 2.4rem; margin-bottom: 12px; }
+        .card h3 { font-size: 1.15rem; font-weight: 700; color: var(--text-bright); margin-bottom: 8px; }
+        .card p { font-size: 0.92rem; line-height: 1.55; color: #bbb; }
+
+        /* ── DIAGRAM ── */
+        .diagram-box {
+            background: var(--card);
+            border-radius: 16px;
+            padding: 32px;
+            border: 1px solid rgba(255,255,255,0.06);
+            margin-top: 24px;
+            text-align: center;
+        }
+        .diagram-box img, .diagram-box svg { max-width: 100%; }
+
+        /* ── COMPASS ── */
+        .compass-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 32px;
+            align-items: center;
+            justify-content: center;
+            margin-top: 28px;
+        }
+        .compass {
+            width: 280px;
+            height: 280px;
+            position: relative;
+            border-radius: 50%;
+            background: radial-gradient(circle, #1e1e3a 0%, #0f0f1a 100%);
+            border: 3px solid rgba(255,255,255,0.08);
+        }
+        .compass-label {
+            position: absolute;
+            font-weight: 700;
+            font-size: 0.85rem;
+            color: #888;
+            transform: translate(-50%, -50%);
+        }
+        .compass-label.active { color: #ff7e5f; font-size: 1rem; }
+        .compass .bulb {
+            position: absolute;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            transition: all 1s;
+        }
+        .sun-dot {
+            position: absolute;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: #ffcc00;
+            box-shadow: 0 0 20px #ffcc00, 0 0 50px rgba(255,200,0,0.4);
+            transform: translate(-50%, -50%);
+            animation: pulse 2s ease-in-out infinite;
+        }
+        @keyframes pulse { 0%,100%{ box-shadow: 0 0 20px #ffcc00, 0 0 50px rgba(255,200,0,0.4); } 50%{ box-shadow: 0 0 30px #ffcc00, 0 0 70px rgba(255,200,0,0.5); } }
+
+        /* ── TIMELINE ── */
+        .timeline {
+            position: relative;
+            margin-top: 28px;
+            padding-left: 32px;
+        }
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 12px;
+            top: 0;
+            bottom: 0;
+            width: 3px;
+            background: linear-gradient(to bottom, #ff7e5f, #ffcc00, #56ccf2, #ffcc00, #ff7e5f, #2d3561);
+            border-radius: 3px;
+        }
+        .tl-item {
+            position: relative;
+            margin-bottom: 28px;
+            padding: 20px 24px;
+            background: var(--card);
+            border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+        .tl-item::before {
+            content: '';
+            position: absolute;
+            left: -26px;
+            top: 24px;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            border: 3px solid;
+        }
+        .tl-item:nth-child(1)::before { border-color: #ff7e5f; background: rgba(255,126,95,0.3); }
+        .tl-item:nth-child(2)::before { border-color: #ffcc00; background: rgba(255,204,0,0.3); }
+        .tl-item:nth-child(3)::before { border-color: #56ccf2; background: rgba(86,204,242,0.3); }
+        .tl-item:nth-child(4)::before { border-color: #f2994a; background: rgba(242,153,74,0.3); }
+        .tl-item:nth-child(5)::before { border-color: #2d3561; background: rgba(45,53,97,0.5); }
+        .tl-time { font-weight: 700; font-size: 0.9rem; color: var(--accent); margin-bottom: 4px; }
+        .tl-item h3 { font-size: 1.05rem; color: var(--text-bright); margin-bottom: 4px; }
+        .tl-item p { font-size: 0.88rem; color: #aaa; line-height: 1.5; }
+
+        /* ── COLOR BAR ── */
+        .color-bar {
+            height: 48px;
+            border-radius: 12px;
+            margin-top: 16px;
+            background: linear-gradient(to right,
+                #ff6b35 0%,
+                #ff9a56 12%,
+                #ffbe76 25%,
+                #f6e58d 37%,
+                #dff9fb 50%,
+                #c7ecee 62%,
+                #f6e58d 75%,
+                #ffbe76 87%,
+                #ff6b35 100%
+            );
+            position: relative;
+            overflow: hidden;
+        }
+        .color-bar-labels {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 8px;
+            font-size: 0.78rem;
+            color: #888;
+        }
+
+        /* ── ANALOGY BOX ── */
+        .analogy {
+            background: linear-gradient(135deg, rgba(108,99,255,0.1), rgba(86,204,242,0.08));
+            border: 1px solid rgba(108,99,255,0.2);
+            border-radius: 14px;
+            padding: 24px 28px;
+            margin-top: 20px;
+            font-size: 1rem;
+            line-height: 1.6;
+        }
+        .analogy strong { color: var(--accent); }
+        .analogy-label {
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--accent);
+            margin-bottom: 8px;
+        }
+
+        /* ── STEP LIST ── */
+        .steps {
+            counter-reset: step;
+            margin-top: 24px;
+        }
+        .step {
+            counter-increment: step;
+            display: flex;
+            gap: 16px;
+            margin-bottom: 18px;
+            align-items: flex-start;
+        }
+        .step-num {
+            flex-shrink: 0;
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            background: var(--accent);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 0.95rem;
+        }
+        .step-content h3 { font-size: 1rem; color: var(--text-bright); margin-bottom: 4px; }
+        .step-content p { font-size: 0.88rem; color: #aaa; line-height: 1.5; }
+
+        /* ── MOON PHASE ── */
+        .moon-phases {
+            display: flex;
+            justify-content: center;
+            gap: 18px;
+            flex-wrap: wrap;
+            margin-top: 20px;
+        }
+        .moon-phase {
+            text-align: center;
+        }
+        .moon-phase .icon { font-size: 2.6rem; }
+        .moon-phase .label { font-size: 0.75rem; color: #888; margin-top: 4px; }
+        .moon-phase .bright { font-size: 0.7rem; color: var(--accent); font-weight: 700; }
+
+        /* ── DIMMER ── */
+        .dimmer-demo {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+            margin-top: 28px;
+        }
+        .dimmer-knob {
+            width: 160px;
+            height: 160px;
+            border-radius: 50%;
+            background: conic-gradient(from 0deg, #333, #555, #333);
+            border: 4px solid #444;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            cursor: pointer;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            transition: transform 0.3s;
+        }
+        .dimmer-knob:hover { transform: scale(1.05); }
+        .dimmer-knob .indicator {
+            position: absolute;
+            top: 14px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 6px;
+            height: 20px;
+            background: var(--accent);
+            border-radius: 3px;
+        }
+        .dimmer-knob .center-text {
+            font-size: 1.8rem;
+            font-weight: 800;
+            color: var(--text-bright);
+        }
+        .dimmer-buttons {
+            display: flex;
+            gap: 12px;
+        }
+        .dimmer-btn {
+            padding: 10px 24px;
+            border-radius: 10px;
+            border: 1px solid rgba(255,255,255,0.1);
+            background: var(--card);
+            color: var(--text-bright);
+            font-family: 'Nunito', sans-serif;
+            font-weight: 700;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .dimmer-btn:hover { background: var(--accent); }
+        .demo-bulbs {
+            display: flex;
+            gap: 14px;
+        }
+        .demo-bulb {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            transition: all 0.5s;
+        }
+
+        /* ── ARCHITECTURE ── */
+        .arch-flow {
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+            align-items: center;
+            margin-top: 28px;
+        }
+        .arch-box {
+            padding: 16px 28px;
+            border-radius: 12px;
+            text-align: center;
+            font-weight: 700;
+            font-size: 0.95rem;
+            min-width: 220px;
+            border: 1px solid rgba(255,255,255,0.08);
+        }
+        .arch-arrow {
+            font-size: 1.4rem;
+            color: #555;
+            padding: 6px 0;
+        }
+        .arch-sky { background: linear-gradient(135deg, #1a1a4e, #2d3561); color: #c7ecee; }
+        .arch-ha { background: linear-gradient(135deg, #1a3a2e, #1a5a3e); color: #a3d9a5; }
+        .arch-app { background: linear-gradient(135deg, #3a1a3e, #5a1a5e); color: #d4a5d9; }
+        .arch-hue { background: linear-gradient(135deg, #3a2a1a, #5a3a1a); color: #f2c94c; }
+        .arch-bulb { background: linear-gradient(135deg, #3a3a1a, #5a5a1a); color: #ffcc00; }
+
+        /* ── TWO COL ── */
+        .two-col {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 28px;
+            margin-top: 24px;
+        }
+        @media (max-width: 700px) { .two-col { grid-template-columns: 1fr; } }
+
+        /* ── FOOTER ── */
+        footer {
+            text-align: center;
+            padding: 40px 24px;
+            color: #555;
+            font-size: 0.85rem;
+        }
+
+        /* ── BG EFFECTS ── */
+        .bg-gradient {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(100px);
+            opacity: 0.15;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* ── SCROLL ANIMATIONS ── */
+        .fade-in {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: opacity 0.7s ease, transform 0.7s ease;
+        }
+        .fade-in.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* ── FUN FACT ── */
+        .fun-fact {
+            background: rgba(255,204,0,0.08);
+            border-left: 4px solid #ffcc00;
+            padding: 16px 20px;
+            border-radius: 0 10px 10px 0;
+            margin-top: 16px;
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+        .fun-fact strong { color: #ffcc00; }
+
+        /* interactive compass */
+        #compass-interactive { position: relative; }
+        #sun-marker {
+            transition: left 1s ease, top 1s ease;
+        }
+    </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+    <ul>
+        <li><a href="#hero">Home</a></li>
+        <li><a href="#big-idea">Big Idea</a></li>
+        <li><a href="#hardware">Hardware</a></li>
+        <li><a href="#sun-tracking">Sun</a></li>
+        <li><a href="#colors">Colors</a></li>
+        <li><a href="#compass">Compass</a></li>
+        <li><a href="#moon">Moon</a></li>
+        <li><a href="#dimmer">Dimmer</a></li>
+        <li><a href="#day-life">A Day</a></li>
+        <li><a href="#architecture">How It Connects</a></li>
+        <li><a href="#summary">Summary</a></li>
+    </ul>
+</nav>
+
+<!-- ========== SLIDE 1: HERO ========== -->
+<section class="slide" id="hero">
+    <div class="bg-gradient" style="width:500px;height:500px;background:#6c63ff;top:-100px;right:-100px;"></div>
+    <div class="bg-gradient" style="width:400px;height:400px;background:#ff7e5f;bottom:-80px;left:-80px;"></div>
+    <div class="slide-inner fade-in">
+        <div class="hero-icon">&#9728;&#65039;</div>
+        <div class="badge">Home Automation Project</div>
+        <h1><span>Sun Fixture</span></h1>
+        <p class="subtitle">Smart lights that follow the sun and moon across the sky — just like nature intended.</p>
+        <br>
+        <p style="color:#666; font-size:0.9rem;">Scroll down to learn how it all works</p>
+        <div style="margin-top:20px; font-size:1.6rem; animation: float 2s ease-in-out infinite;">&#11015;&#65039;</div>
+    </div>
+</section>
+
+<!-- ========== SLIDE 2: THE BIG IDEA ========== -->
+<section class="slide" id="big-idea">
+    <div class="bg-gradient" style="width:400px;height:400px;background:#ff7e5f;top:10%;left:-60px;"></div>
+    <div class="slide-inner fade-in">
+        <div class="badge">The Big Idea</div>
+        <h2>What If Your Lights Acted Like the Sun?</h2>
+
+        <div class="analogy">
+            <div class="analogy-label">Think of it like this</div>
+            <p>Imagine you have <strong>8 light bulbs</strong> arranged in a circle on your ceiling — one pointing North, one Northeast, one East, and so on, like a compass.</p>
+            <br>
+            <p>Now imagine the <strong>real sun is in the East</strong> during the morning. Your <strong>East light shines the brightest</strong>, the lights next to it (NE and SE) are pretty bright too, and the <strong>West light is off</strong> — because the sun is on the other side of the sky!</p>
+            <br>
+            <p>As the sun moves across the sky during the day, <strong>the bright spot moves around your lights</strong> to match. It's like having a tiny sun inside your house!</p>
+        </div>
+
+        <div class="card-grid">
+            <div class="card">
+                <div class="card-icon">&#127774;</div>
+                <h3>Tracks the Sun</h3>
+                <p>Knows exactly where the sun is in the sky every minute of the day.</p>
+            </div>
+            <div class="card">
+                <div class="card-icon">&#127769;</div>
+                <h3>Tracks the Moon</h3>
+                <p>At night, it switches to follow the moon's position instead.</p>
+            </div>
+            <div class="card">
+                <div class="card-icon">&#127912;</div>
+                <h3>Changes Color</h3>
+                <p>Warm orange at sunrise, bright white at noon, warm again at sunset.</p>
+            </div>
+            <div class="card">
+                <div class="card-icon">&#128270;</div>
+                <h3>All Automatic</h3>
+                <p>Once it's set up, it runs by itself — no buttons needed!</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ========== SLIDE 3: THE HARDWARE ========== -->
+<section class="slide" id="hardware">
+    <div class="bg-gradient" style="width:350px;height:350px;background:#56ccf2;bottom:5%;right:-40px;"></div>
+    <div class="slide-inner fade-in">
+        <div class="badge">The Hardware</div>
+        <h2>What Parts Make This Work?</h2>
+        <p class="subtitle">Think of it like a team — each piece has a job to do.</p>
+
+        <div class="card-grid">
+            <div class="card">
+                <div class="card-icon">&#129504;</div>
+                <h3>Home Assistant Green</h3>
+                <p><strong>The Brain.</strong> A small computer that runs everything. It talks to all the other devices and tells the lights what to do.</p>
+            </div>
+            <div class="card">
+                <div class="card-icon">&#127750;</div>
+                <h3>Philips Hue Bridge</h3>
+                <p><strong>The Translator.</strong> It speaks the lights' language (Zigbee radio signals) and passes along instructions from the brain.</p>
+            </div>
+            <div class="card">
+                <div class="card-icon">&#128161;</div>
+                <h3>Hue Color Bulbs (x8)</h3>
+                <p><strong>The Performers.</strong> Smart bulbs that can be any color or brightness. Arranged in 8 compass directions (N, NE, E, SE, S, SW, W, NW).</p>
+            </div>
+            <div class="card">
+                <div class="card-icon">&#128256;</div>
+                <h3>Lutron Aurora Dimmer</h3>
+                <p><strong>The Remote Control.</strong> A physical knob you can twist to make lights brighter or dimmer, and click to switch modes.</p>
+            </div>
+        </div>
+
+        <div class="fun-fact">
+            <strong>&#128161; Fun Fact:</strong> The lights talk to the Hue Bridge using invisible radio waves called <strong>Zigbee</strong> — kind of like how your phone uses Wi-Fi, but designed just for smart home gadgets!
+        </div>
+    </div>
+</section>
+
+<!-- ========== SLIDE 4: SUN TRACKING ========== -->
+<section class="slide" id="sun-tracking">
+    <div class="bg-gradient" style="width:400px;height:400px;background:#ffcc00;top:20%;left:-80px;"></div>
+    <div class="slide-inner fade-in">
+        <div class="badge">Sun Tracking</div>
+        <h2>How Does It Know Where the Sun Is?</h2>
+
+        <div class="two-col">
+            <div>
+                <h3 style="color:var(--text-bright); margin-bottom:12px;">Two Key Measurements</h3>
+                <div class="card" style="margin-bottom:16px;">
+                    <div class="card-icon">&#11014;&#65039;</div>
+                    <h3>Elevation (Height)</h3>
+                    <p>How high the sun is above the horizon. 0° means it's right at the horizon (sunrise/sunset). 90° means it's directly overhead (noon).</p>
+                </div>
+                <div class="card">
+                    <div class="card-icon">&#129517;</div>
+                    <h3>Azimuth (Direction)</h3>
+                    <p>Which compass direction the sun is in. Like a compass: 0° = North, 90° = East, 180° = South, 270° = West.</p>
+                </div>
+            </div>
+            <div>
+                <div class="analogy">
+                    <div class="analogy-label">Think of it like this</div>
+                    <p>Imagine you're standing in a field. To find the sun, you need two things:</p>
+                    <br>
+                    <p><strong>1. Where to point</strong> — Do you look East? South? West? That's the <strong>azimuth</strong> (direction).</p>
+                    <br>
+                    <p><strong>2. How high to look</strong> — Is it near the ground or way up high? That's the <strong>elevation</strong> (height).</p>
+                    <br>
+                    <p>Home Assistant figures out both of these using <strong>math and your location</strong> on Earth. It checks every 60 seconds!</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="fun-fact">
+            <strong>&#9201; Every 60 Seconds:</strong> The system checks the sun's position, calculates new brightness and color for each light, and updates them — all in less than a second!
+        </div>
+    </div>
+</section>
+
+<!-- ========== SLIDE 5: COLORS ========== -->
+<section class="slide" id="colors">
+    <div class="bg-gradient" style="width:500px;height:500px;background:#f2994a;bottom:-60px;left:50%;transform:translateX(-50%);"></div>
+    <div class="slide-inner fade-in">
+        <div class="badge">Light Colors</div>
+        <h2>Why Do the Colors Change?</h2>
+        <p class="subtitle">Just like real sunlight changes color throughout the day, so do your lights.</p>
+
+        <div class="diagram-box">
+            <h3 style="margin-bottom:16px; color:var(--text-bright);">Sun Color Throughout the Day</h3>
+            <div class="color-bar"></div>
+            <div class="color-bar-labels">
+                <span>&#127749; Sunrise<br>Warm Orange<br>2000K</span>
+                <span>&#127780; Morning<br>Golden<br>3500K</span>
+                <span>&#9728;&#65039; Noon<br>Cool White<br>6500K</span>
+                <span>&#127774; Afternoon<br>Golden<br>3500K</span>
+                <span>&#127751; Sunset<br>Warm Orange<br>2000K</span>
+            </div>
+        </div>
+
+        <div class="analogy" style="margin-top:24px;">
+            <div class="analogy-label">What's a "Kelvin"?</div>
+            <p><strong>Kelvin (K)</strong> is how we measure the color of white light. It's like a scale:</p>
+            <br>
+            <p>&#128293; <strong>Low numbers (2000K)</strong> = Warm, orange, cozy — like a campfire or candle.</p>
+            <p>&#9728;&#65039; <strong>Medium (4000K)</strong> = Neutral, natural — like a cloudy day.</p>
+            <p>&#10052;&#65039; <strong>High numbers (6500K)</strong> = Cool, bright white — like being outside at noon.</p>
+        </div>
+
+        <div class="two-col" style="margin-top:24px;">
+            <div class="card">
+                <div class="card-icon">&#9925;</div>
+                <h3>Cloud Cover Effect</h3>
+                <p>If it's cloudy outside, the system makes the lights a little warmer — because real cloudy skies look different than clear ones!</p>
+            </div>
+            <div class="card">
+                <div class="card-icon">&#128167;</div>
+                <h3>Humidity Effect</h3>
+                <p>At night, if there's moisture in the air, the moon looks warmer. The lights copy this too!</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ========== SLIDE 6: COMPASS LIGHTING ========== -->
+<section class="slide" id="compass">
+    <div class="bg-gradient" style="width:400px;height:400px;background:#6c63ff;top:-40px;right:-60px;"></div>
+    <div class="slide-inner fade-in">
+        <div class="badge">Directional Lighting</div>
+        <h2>The Compass of Lights</h2>
+        <p class="subtitle">This is the coolest part — each light gets its own brightness based on where the sun is!</p>
+
+        <div class="compass-container">
+            <!-- Compass Visualization -->
+            <div class="compass" id="compass-interactive">
+                <!-- Direction Labels -->
+                <span class="compass-label" style="top:8%;left:50%;">N</span>
+                <span class="compass-label" style="top:18%;left:82%;">NE</span>
+                <span class="compass-label" style="top:50%;left:95%;">E</span>
+                <span class="compass-label" style="top:82%;left:82%;">SE</span>
+                <span class="compass-label" style="top:92%;left:50%;">S</span>
+                <span class="compass-label" style="top:82%;left:18%;">SW</span>
+                <span class="compass-label" style="top:50%;left:5%;">W</span>
+                <span class="compass-label" style="top:18%;left:18%;">NW</span>
+
+                <!-- Bulbs -->
+                <div class="bulb" id="b-n"  style="top:14%;left:50%;background:rgba(255,200,50,0.3);"></div>
+                <div class="bulb" id="b-ne" style="top:22%;left:78%;background:rgba(255,200,50,0.3);"></div>
+                <div class="bulb" id="b-e"  style="top:50%;left:88%;background:rgba(255,200,50,1);box-shadow:0 0 15px rgba(255,200,50,0.8);"></div>
+                <div class="bulb" id="b-se" style="top:78%;left:78%;background:rgba(255,200,50,0.7);"></div>
+                <div class="bulb" id="b-s"  style="top:86%;left:50%;background:rgba(255,200,50,0.2);"></div>
+                <div class="bulb" id="b-sw" style="top:78%;left:22%;background:rgba(255,200,50,0.05);"></div>
+                <div class="bulb" id="b-w"  style="top:50%;left:12%;background:rgba(255,200,50,0);"></div>
+                <div class="bulb" id="b-nw" style="top:22%;left:22%;background:rgba(255,200,50,0.05);"></div>
+
+                <!-- Sun Marker -->
+                <div class="sun-dot" id="sun-marker" style="top:50%;left:88%;"></div>
+            </div>
+
+            <div style="max-width:320px;">
+                <h3 style="color:var(--text-bright); margin-bottom:12px;">How Brightness Spreads</h3>
+                <p style="font-size:0.92rem; line-height:1.6; color:#bbb; margin-bottom:16px;">
+                    In this example, the <strong style="color:#ffcc00;">sun is in the East</strong>. Watch how the brightness spreads:
+                </p>
+
+                <div style="font-size:0.88rem; line-height:2; color:#aaa;">
+                    <span style="color:#ffcc00;">&#9632; East light:</span> <strong style="color:#fff;">100%</strong> — facing the sun<br>
+                    <span style="color:#e6a800;">&#9632; NE & SE:</span> <strong style="color:#ddd;">70%</strong> — next to the sun<br>
+                    <span style="color:#997300;">&#9632; N & S:</span> <strong style="color:#aaa;">20%</strong> — sideways<br>
+                    <span style="color:#4d3900;">&#9632; NW & SW:</span> <strong style="color:#777;">5%</strong> — almost away<br>
+                    <span style="color:#1a1300;">&#9632; West:</span> <strong style="color:#555;">Off</strong> — opposite side
+                </div>
+
+                <br>
+                <p style="font-size: 0.82rem; color: var(--accent); cursor:pointer;" onclick="animateSun()">&#9654; Click to watch the sun move!</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ========== SLIDE 7: MOON MODE ========== -->
+<section class="slide" id="moon">
+    <div class="bg-gradient" style="width:500px;height:500px;background:#2d3561;top:0;left:-100px;"></div>
+    <div class="slide-inner fade-in">
+        <div class="badge">Moon Mode</div>
+        <h2>What Happens at Night?</h2>
+        <p class="subtitle">When the sun goes below the horizon, the system switches to moon mode.</p>
+
+        <div class="two-col">
+            <div>
+                <div class="card" style="margin-bottom:16px;">
+                    <div class="card-icon">&#127769;</div>
+                    <h3>Fewer Lights</h3>
+                    <p>Instead of all 8 lights, only <strong>1 or 2 bulbs</strong> turn on — the ones closest to where the moon actually is. This keeps things calm and cozy at night.</p>
+                </div>
+                <div class="card" style="margin-bottom:16px;">
+                    <div class="card-icon">&#128566;</div>
+                    <h3>Much Dimmer</h3>
+                    <p>Moon mode runs at about <strong>60% of normal brightness</strong>. The moon is way dimmer than the sun, so the lights match!</p>
+                </div>
+                <div class="card">
+                    <div class="card-icon">&#127912;</div>
+                    <h3>Blue-White Color</h3>
+                    <p>Instead of warm Kelvin colors, moon mode uses <strong>cool blue-white RGB colors</strong> — like real moonlight.</p>
+                </div>
+            </div>
+            <div>
+                <h3 style="color:var(--text-bright); margin-bottom:16px;">Moon Phase = Brightness</h3>
+                <p style="font-size:0.92rem; color:#bbb; margin-bottom:16px; line-height:1.5;">The moon's phase (how much of it is lit up) controls how bright the lights get. Full moon = brightest. New moon = dimmest.</p>
+
+                <div class="moon-phases">
+                    <div class="moon-phase">
+                        <div class="icon">&#127761;</div>
+                        <div class="label">New Moon</div>
+                        <div class="bright">Very Dim</div>
+                    </div>
+                    <div class="moon-phase">
+                        <div class="icon">&#127762;</div>
+                        <div class="label">Crescent</div>
+                        <div class="bright">25%</div>
+                    </div>
+                    <div class="moon-phase">
+                        <div class="icon">&#127763;</div>
+                        <div class="label">Quarter</div>
+                        <div class="bright">50%</div>
+                    </div>
+                    <div class="moon-phase">
+                        <div class="icon">&#127764;</div>
+                        <div class="label">Gibbous</div>
+                        <div class="bright">75%</div>
+                    </div>
+                    <div class="moon-phase">
+                        <div class="icon">&#127765;</div>
+                        <div class="label">Full Moon</div>
+                        <div class="bright">100%</div>
+                    </div>
+                </div>
+
+                <div class="analogy" style="margin-top:20px;">
+                    <div class="analogy-label">How it decides</div>
+                    <p>The system uses a <strong>space math library called PyEphem</strong> — the same kind of math NASA uses — to calculate exactly where the moon is and how full it is. Pretty cool for a light bulb, right?</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ========== SLIDE 8: DIMMER CONTROL ========== -->
+<section class="slide" id="dimmer">
+    <div class="bg-gradient" style="width:350px;height:350px;background:#ff7e5f;bottom:10%;right:-80px;"></div>
+    <div class="slide-inner fade-in">
+        <div class="badge">Physical Control</div>
+        <h2>The Dimmer Knob</h2>
+        <p class="subtitle">Even though everything is automatic, you can still control it by hand!</p>
+
+        <div class="two-col">
+            <div>
+                <div class="card" style="margin-bottom:16px;">
+                    <div class="card-icon">&#128260;</div>
+                    <h3>Twist to Dim</h3>
+                    <p>Turn the knob <strong>clockwise</strong> = brighter. Turn <strong>counter-clockwise</strong> = dimmer. Each click changes brightness by <strong>5%</strong>.</p>
+                </div>
+                <div class="card" style="margin-bottom:16px;">
+                    <div class="card-icon">&#128076;</div>
+                    <h3>Click to Switch Modes</h3>
+                    <p>Push the button to cycle through three modes:</p>
+                    <p style="margin-top:8px;">
+                        <span style="color:#ffcc00;">&#9728;&#65039; Sun Mode</span> &#8594;
+                        <span style="color:#8888ff;">&#127769; Moon Mode</span> &#8594;
+                        <span style="color:#ff5555;">&#9940; Off</span> &#8594;
+                        <span style="color:#ffcc00;">&#9728;&#65039; Sun Mode</span>...
+                    </p>
+                </div>
+                <div class="card">
+                    <div class="card-icon">&#128161;</div>
+                    <h3>Visual Feedback</h3>
+                    <p>When you switch modes, all lights <strong>flash a color</strong> to confirm: warm yellow for Sun, blue for Moon, red for Off.</p>
+                </div>
+            </div>
+            <div>
+                <div class="dimmer-demo">
+                    <p style="color:#888; font-size:0.85rem;">Try it! Click the buttons below.</p>
+                    <div class="dimmer-knob" id="dimmer-display">
+                        <div class="indicator"></div>
+                        <span class="center-text" id="dimmer-value">75%</span>
+                    </div>
+                    <div class="dimmer-buttons">
+                        <button class="dimmer-btn" onclick="adjustDimmer(-1)">&#8722; Dimmer</button>
+                        <button class="dimmer-btn" onclick="adjustDimmer(1)">+ Brighter</button>
+                    </div>
+                    <div class="demo-bulbs" id="demo-bulbs">
+                        <div class="demo-bulb" style="background:rgba(255,200,50,0.75);box-shadow:0 0 12px rgba(255,200,50,0.5);"></div>
+                        <div class="demo-bulb" style="background:rgba(255,200,50,0.75);box-shadow:0 0 12px rgba(255,200,50,0.5);"></div>
+                        <div class="demo-bulb" style="background:rgba(255,200,50,0.75);box-shadow:0 0 12px rgba(255,200,50,0.5);"></div>
+                        <div class="demo-bulb" style="background:rgba(255,200,50,0.75);box-shadow:0 0 12px rgba(255,200,50,0.5);"></div>
+                        <div class="demo-bulb" style="background:rgba(255,200,50,0.75);box-shadow:0 0 12px rgba(255,200,50,0.5);"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ========== SLIDE 9: A DAY IN THE LIFE ========== -->
+<section class="slide" id="day-life">
+    <div class="bg-gradient" style="width:450px;height:450px;background:#f2994a;top:5%;left:-100px;"></div>
+    <div class="slide-inner fade-in">
+        <div class="badge">A Day In The Life</div>
+        <h2>What Happens From Sunrise to Bedtime?</h2>
+
+        <div class="timeline">
+            <div class="tl-item">
+                <div class="tl-time">&#127749; 6:30 AM — Sunrise</div>
+                <h3>Wake-Up Glow</h3>
+                <p>The sun peeks above the horizon in the <strong>East</strong>. The East light turns on with a warm, orange glow (2000K). Other lights stay very dim. It's like a gentle sunrise in your room.</p>
+            </div>
+            <div class="tl-item">
+                <div class="tl-time">&#127780; 9:00 AM — Morning</div>
+                <h3>Golden Morning</h3>
+                <p>The sun climbs higher and moves toward the <strong>Southeast</strong>. The light shifts to a golden color (3500K) and gets brighter. The SE and E lights are the brightest now.</p>
+            </div>
+            <div class="tl-item">
+                <div class="tl-time">&#9728;&#65039; 12:00 PM — Noon</div>
+                <h3>Full Brightness</h3>
+                <p>The sun is high in the <strong>South</strong>. All lights are at their brightest and coolest white (6500K). The South light leads, with brightness spreading evenly to nearby lights.</p>
+            </div>
+            <div class="tl-item">
+                <div class="tl-time">&#127751; 6:00 PM — Sunset</div>
+                <h3>Evening Warmth</h3>
+                <p>The sun sinks toward the <strong>West</strong>. Colors return to warm orange (2000K). The West light is brightest as the sun dips below the horizon. Cozy vibes!</p>
+            </div>
+            <div class="tl-item">
+                <div class="tl-time">&#127769; 9:00 PM — Night</div>
+                <h3>Moon Takes Over</h3>
+                <p>The system switches to <strong>Moon Mode</strong>. Only 1-2 lights glow with a soft blue-white color, following the moon's actual position. Super peaceful for bedtime.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ========== SLIDE 10: ARCHITECTURE ========== -->
+<section class="slide" id="architecture">
+    <div class="bg-gradient" style="width:400px;height:400px;background:#6c63ff;bottom:-80px;right:-60px;"></div>
+    <div class="slide-inner fade-in">
+        <div class="badge">Under the Hood</div>
+        <h2>How All the Pieces Connect</h2>
+        <p class="subtitle">Here's how information flows from space all the way to your light bulbs.</p>
+
+        <div class="arch-flow">
+            <div class="arch-box arch-sky">&#127758; The Actual Sky<br><span style="font-weight:400;font-size:0.82rem;">Sun & Moon positions in space</span></div>
+            <div class="arch-arrow">&#11015;&#65039; math calculations</div>
+            <div class="arch-box arch-ha">&#129504; Home Assistant<br><span style="font-weight:400;font-size:0.82rem;">Gets sun elevation & azimuth</span></div>
+            <div class="arch-arrow">&#11015;&#65039; sends data every 60s</div>
+            <div class="arch-box arch-app">&#9881;&#65039; Celestial Lighting App<br><span style="font-weight:400;font-size:0.82rem;">Our Python code — the brains!</span></div>
+            <div class="arch-arrow">&#11015;&#65039; "set East light to 100%, warm white"</div>
+            <div class="arch-box arch-hue">&#127750; Hue Bridge<br><span style="font-weight:400;font-size:0.82rem;">Translates commands to Zigbee</span></div>
+            <div class="arch-arrow">&#11015;&#65039; radio signals (Zigbee)</div>
+            <div class="arch-box arch-bulb">&#128161; Your Light Bulbs<br><span style="font-weight:400;font-size:0.82rem;">Change color & brightness!</span></div>
+        </div>
+
+        <div class="two-col" style="margin-top:32px;">
+            <div class="card">
+                <div class="card-icon">&#128187;</div>
+                <h3>Written in Python</h3>
+                <p>The app is written in <strong>Python</strong> — one of the most popular programming languages in the world. It's about <strong>600 lines of code</strong>.</p>
+            </div>
+            <div class="card">
+                <div class="card-icon">&#128225;</div>
+                <h3>Aurora Dimmer Events</h3>
+                <p>When you twist or click the dimmer, it sends a <strong>Zigbee event</strong> to Home Assistant, which instantly tells our app to update the lights.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ========== SLIDE 11: SUMMARY ========== -->
+<section class="slide" id="summary">
+    <div class="bg-gradient" style="width:600px;height:600px;background:#6c63ff;top:50%;left:50%;transform:translate(-50%,-50%);"></div>
+    <div class="slide-inner fade-in" style="text-align:center;">
+        <div class="badge">Putting It All Together</div>
+        <h2>So How Does Sun Fixture Work?</h2>
+
+        <div class="steps" style="text-align:left; max-width:650px; margin:28px auto 0;">
+            <div class="step">
+                <div class="step-num">1</div>
+                <div class="step-content">
+                    <h3>Check the Sky</h3>
+                    <p>Every 60 seconds, the system asks: "Where is the sun (or moon) right now?" It uses your location and math to figure it out.</p>
+                </div>
+            </div>
+            <div class="step">
+                <div class="step-num">2</div>
+                <div class="step-content">
+                    <h3>Pick the Color</h3>
+                    <p>Based on how high the sun is: low sun = warm orange, high sun = cool white. At night, it uses blue-white moonlight colors.</p>
+                </div>
+            </div>
+            <div class="step">
+                <div class="step-num">3</div>
+                <div class="step-content">
+                    <h3>Aim the Brightness</h3>
+                    <p>The light closest to the sun's direction gets the brightest. Lights on the opposite side get dim or turn off. It's like a spotlight that follows the sun.</p>
+                </div>
+            </div>
+            <div class="step">
+                <div class="step-num">4</div>
+                <div class="step-content">
+                    <h3>Update the Bulbs</h3>
+                    <p>Each bulb receives its own personalized color and brightness, and smoothly fades to the new setting in about 1 second.</p>
+                </div>
+            </div>
+            <div class="step">
+                <div class="step-num">5</div>
+                <div class="step-content">
+                    <h3>Repeat Forever!</h3>
+                    <p>This happens automatically, all day, every day. And you can always grab the dimmer to adjust things yourself!</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="analogy" style="max-width:650px; margin:28px auto 0; text-align:center;">
+            <p style="font-size:1.1rem;">&#127775; <strong>In one sentence:</strong> Sun Fixture is a system that makes your indoor lights copy the real sky — following the sun during the day and the moon at night — so your home always feels natural and connected to the outdoors.</p>
+        </div>
+
+        <div class="fun-fact" style="max-width:650px; margin:24px auto 0; text-align:left;">
+            <strong>&#128640; Cool Tech Used:</strong> Python programming, astronomical math (PyEphem), Home Assistant automation, Zigbee wireless protocol, WebSocket real-time communication, and Philips Hue smart lighting. That's a lot of technology working together!
+        </div>
+    </div>
+</section>
+
+<footer>
+    <p>Sun Fixture Presentation &mdash; Built with HTML, CSS & JavaScript</p>
+</footer>
+
+<script>
+    // ── Scroll Animations ──
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.classList.add('visible');
+            }
+        });
+    }, { threshold: 0.15 });
+
+    document.querySelectorAll('.fade-in').forEach(el => observer.observe(el));
+
+    // ── Active Nav ──
+    const sections = document.querySelectorAll('.slide');
+    const navLinks = document.querySelectorAll('nav a');
+
+    const navObserver = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                navLinks.forEach(link => link.classList.remove('active'));
+                const active = document.querySelector(`nav a[href="#${entry.target.id}"]`);
+                if (active) active.classList.add('active');
+            }
+        });
+    }, { threshold: 0.4 });
+
+    sections.forEach(s => navObserver.observe(s));
+
+    // ── Dimmer Demo ──
+    let dimmerLevel = 75;
+
+    function adjustDimmer(dir) {
+        dimmerLevel = Math.max(10, Math.min(100, dimmerLevel + dir * 5));
+        document.getElementById('dimmer-value').textContent = dimmerLevel + '%';
+
+        const opacity = dimmerLevel / 100;
+        const bulbs = document.querySelectorAll('#demo-bulbs .demo-bulb');
+        bulbs.forEach(b => {
+            b.style.background = `rgba(255,200,50,${opacity})`;
+            b.style.boxShadow = `0 0 ${12 * opacity}px rgba(255,200,50,${opacity * 0.7})`;
+        });
+
+        const knob = document.getElementById('dimmer-display');
+        const rotation = (dimmerLevel / 100) * 270 - 135;
+        knob.querySelector('.indicator').style.transform = `translateX(-50%) rotate(${rotation}deg)`;
+        knob.style.transformOrigin = 'center center';
+    }
+
+    // ── Compass Sun Animation ──
+    const compassPositions = [
+        { name: 'E',  top: 50, left: 88 },
+        { name: 'SE', top: 78, left: 78 },
+        { name: 'S',  top: 86, left: 50 },
+        { name: 'SW', top: 78, left: 22 },
+        { name: 'W',  top: 50, left: 12 },
+    ];
+
+    const bulbIds = ['b-n','b-ne','b-e','b-se','b-s','b-sw','b-w','b-nw'];
+    const bulbAzimuths = [0, 45, 90, 135, 180, 225, 270, 315];
+    const dirAzimuths = { 'E': 90, 'SE': 135, 'S': 180, 'SW': 225, 'W': 270 };
+
+    let sunAnimIndex = 0;
+    let sunAnimRunning = false;
+
+    function updateBulbs(sunAz) {
+        bulbIds.forEach((id, i) => {
+            const el = document.getElementById(id);
+            let diff = Math.abs(bulbAzimuths[i] - sunAz);
+            if (diff > 180) diff = 360 - diff;
+
+            let alignment;
+            if (diff <= 45) alignment = 1.0 - (diff / 45) * 0.3;
+            else if (diff <= 90) alignment = 0.7 - ((diff - 45) / 45) * 0.5;
+            else if (diff <= 135) alignment = 0.2 - ((diff - 90) / 45) * 0.15;
+            else alignment = 0.05 - ((diff - 135) / 45) * 0.05;
+
+            alignment = Math.max(0, alignment);
+            el.style.background = `rgba(255,200,50,${alignment})`;
+            el.style.boxShadow = alignment > 0.3 ? `0 0 ${15 * alignment}px rgba(255,200,50,${alignment * 0.8})` : 'none';
+        });
+    }
+
+    function animateSun() {
+        if (sunAnimRunning) return;
+        sunAnimRunning = true;
+        sunAnimIndex = 0;
+        stepSun();
+    }
+
+    function stepSun() {
+        if (sunAnimIndex >= compassPositions.length) {
+            sunAnimRunning = false;
+            // Reset to East
+            setTimeout(() => {
+                const marker = document.getElementById('sun-marker');
+                marker.style.top = '50%';
+                marker.style.left = '88%';
+                updateBulbs(90);
+            }, 1500);
+            return;
+        }
+
+        const pos = compassPositions[sunAnimIndex];
+        const marker = document.getElementById('sun-marker');
+        marker.style.top = pos.top + '%';
+        marker.style.left = pos.left + '%';
+        updateBulbs(dirAzimuths[pos.name]);
+
+        sunAnimIndex++;
+        setTimeout(stepSun, 1500);
+    }
+</script>
+</body>
+</html>
