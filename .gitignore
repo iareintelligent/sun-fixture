@@ -41,3 +41,7 @@ uv.lock
 dist/
 build/
 *.egg-info/
+
+# Dolt database files (added by bd init)
+.dolt/
+*.db

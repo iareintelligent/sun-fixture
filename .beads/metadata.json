@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "server",
+  "dolt_database": "sun_fixture",
+  "project_id": "809fac6d-0f6a-483d-9d79-9710195a0389"
+}
