@@ -1,0 +1,24 @@
+# AppDaemon Configuration for Celestial Lighting System
+# This file should be placed in /config/appdaemon/ on your Home Assistant instance
+
+appdaemon:
+  latitude: 47.6763
+  longitude: -122.3233
+  elevation: 50
+  time_zone: America/Los_Angeles
+  
+  plugins:
+    HASS:
+      type: hass
+
+# HTTP server configuration for web routes and visualization
+http:
+  url: http://127.0.0.1:5050
+  
+# Admin interface (optional)
+admin:
+
+# Python packages required
+# Note: Add these to the AppDaemon add-on configuration in Home Assistant
+# python_packages:
+#   - ephem

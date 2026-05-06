@@ -5,6 +5,7 @@ with directional brightness based on azimuth alignment
 """
 
 import appdaemon.plugins.hass.hassapi as hass
+from aiohttp import web
 import ephem
 import math
 from datetime import datetime, timedelta
@@ -18,6 +19,10 @@ class CelestialLighting(hass.Hass):
         """Initialize the app when AppDaemon starts"""
         self.log("Celestial Lighting System initializing...")
         
+        # Track update timing
+        self.last_update_time = None
+        self.next_update_time = None
+        
         # Configuration
         self.directional_lights = self.args.get("directional_lights", {})
         self.aurora_device_id = self.args.get("aurora_device_id", None)
@@ -28,12 +33,15 @@ class CelestialLighting(hass.Hass):
         self.latitude = location.get("latitude", self.get_state("zone.home", attribute="latitude"))
         self.longitude = location.get("longitude", self.get_state("zone.home", attribute="longitude"))
         
-        # State management
-        self.lighting_mode = "sun"  # "sun", "moon", or "off"
-        self.dimmer_level = 1.0  # Dimmer level controlled by Aurora (0.0 to 1.0)
+        # State management - initialize based on current sun position
+        sun_elevation = float(self.get_state("sun.sun", attribute="elevation"))
+        if sun_elevation > -6:
+            self.lighting_mode = "sun"  # Daytime
+        else:
+            self.lighting_mode = "moon"  # Nighttime
         self.last_sun_elevation = None
         self.last_moon_phase = None
-        self.manual_override = False  # Track if user has manually adjusted brightness
+        self.skip_next_auto_correct = False  # Flag to skip auto-correction after manual change
         
         # Parse directional lights configuration
         self.light_directions = {}
@@ -75,6 +83,10 @@ class CelestialLighting(hass.Hass):
             self.log(f"Listening for Aurora dimmer events: {self.aurora_device_id}")
         
         self.log(f"Celestial Lighting initialized for {len(self.light_directions)} directional lights")
+        
+        # Register API endpoint for status
+        self.register_route(self.serve_api_status, "celestial/api/status")
+        self.log("API endpoint registered at /app/celestial/api/status")
         self.log(f"Location: {self.latitude}, {self.longitude}")
         self.log(f"Update interval: {self.update_interval} seconds")
     
@@ -107,27 +119,51 @@ class CelestialLighting(hass.Hass):
     def calculate_azimuth_alignment(self, light_azimuth: float, celestial_azimuth: float) -> float:
         """
         Calculate alignment factor (0-1) based on azimuth difference
-        More dramatic falloff for noticeable directional effects
+        ULTRA dramatic falloff with fine-grained zones for smooth transitions
         """
         # Calculate angular difference (0-180 degrees)
         diff = abs(light_azimuth - celestial_azimuth)
         if diff > 180:
             diff = 360 - diff
         
-        # More dramatic falloff for better visual effect
-        # Use power function for sharper contrast
-        if diff <= 45:
-            # Within 45°: Full to high brightness (100% to 70%)
-            alignment = 1.0 - (diff / 45) * 0.3
+        # Fine-grained falloff zones for smoother transitions
+        # Minimum 1% brightness (0.01) for all bulbs
+        if diff <= 15:
+            # Within 15°: Maximum brightness (100%)
+            alignment = 1.0
+        elif diff <= 30:
+            # 15° to 30°: Slight dropoff (100% to 85%)
+            alignment = 1.0 - ((diff - 15) / 15) * 0.15
+        elif diff <= 45:
+            # 30° to 45°: Noticeable dropoff (85% to 65%)
+            alignment = 0.85 - ((diff - 30) / 15) * 0.20
+        elif diff <= 60:
+            # 45° to 60°: Significant dropoff (65% to 45%)
+            alignment = 0.65 - ((diff - 45) / 15) * 0.20
+        elif diff <= 75:
+            # 60° to 75°: Sharp decline (45% to 28%)
+            alignment = 0.45 - ((diff - 60) / 15) * 0.17
         elif diff <= 90:
-            # 45° to 90°: Rapid falloff (70% to 20%)
-            alignment = 0.7 - ((diff - 45) / 45) * 0.5
+            # 75° to 90°: Steep decline (28% to 15%)
+            alignment = 0.28 - ((diff - 75) / 15) * 0.13
+        elif diff <= 105:
+            # 90° to 105°: Rapid falloff (15% to 8%)
+            alignment = 0.15 - ((diff - 90) / 15) * 0.07
+        elif diff <= 120:
+            # 105° to 120°: Nearly off (8% to 4%)
+            alignment = 0.08 - ((diff - 105) / 15) * 0.04
         elif diff <= 135:
-            # 90° to 135°: Slower falloff (20% to 5%)
-            alignment = 0.2 - ((diff - 90) / 45) * 0.15
+            # 120° to 135°: Very dim (4% to 2%)
+            alignment = 0.04 - ((diff - 120) / 15) * 0.02
+        elif diff <= 150:
+            # 135° to 150°: Barely visible (2% to 1%)
+            alignment = 0.02 - ((diff - 135) / 15) * 0.01
+        elif diff <= 165:
+            # 150° to 165°: Minimum maintained (1%)
+            alignment = 0.01
         else:
-            # Beyond 135°: Minimal brightness (5% to 0%)
-            alignment = max(0, 0.05 - ((diff - 135) / 45) * 0.05)
+            # 165° to 180°: Minimum brightness (1%)
+            alignment = 0.01
         
         return alignment
     
@@ -154,20 +190,100 @@ class CelestialLighting(hass.Hass):
         
         return brightness_map
     
+    def is_hue_sync_active(self):
+        """Check if Hue Sync Box is actively syncing"""
+        try:
+            # Common entity names for Hue Sync Box
+            sync_entities = [
+                "media_player.hue_sync_box",
+                "media_player.philips_hue_play_hdmi_sync_box",
+                "switch.hue_sync_box",
+                "switch.sync_box",
+                "binary_sensor.hue_sync_active",
+                "sensor.hue_sync_box_status"
+            ]
+            
+            for entity in sync_entities:
+                state = self.get_state(entity)
+                if state:
+                    # Check if sync is active
+                    if entity.startswith("media_player"):
+                        # Media player is on and playing
+                        if state in ["playing", "on"]:
+                            self.log(f"Hue Sync Box active: {entity} is {state}")
+                            return True
+                    elif entity.startswith("switch"):
+                        # Sync switch is on
+                        if state == "on":
+                            self.log(f"Hue Sync Box active: {entity} is on")
+                            return True
+                    elif entity.startswith("binary_sensor"):
+                        # Binary sensor for sync active
+                        if state == "on":
+                            self.log(f"Hue Sync Box active: {entity} is on")
+                            return True
+                    elif entity.startswith("sensor"):
+                        # Check sensor status
+                        if state in ["syncing", "active", "on"]:
+                            self.log(f"Hue Sync Box active: {entity} is {state}")
+                            return True
+            
+            # Also check for entertainment mode on lights
+            for light in self.light_directions.keys():
+                # Check if light is in entertainment mode
+                effect = self.get_state(light, attribute="effect")
+                if effect and "entertainment" in effect.lower():
+                    self.log(f"Entertainment mode active on {light}")
+                    return True
+                    
+        except Exception as e:
+            self.log(f"Error checking Hue Sync status: {e}", level="DEBUG")
+        
+        return False
+    
     def update_lights(self, kwargs):
         """Main update loop - called every update_interval seconds"""
+        # Track timing
+        self.last_update_time = datetime.now()
+        self.next_update_time = self.last_update_time + timedelta(seconds=self.update_interval)
+        
         try:
-            self.log(f"Update lights - Mode: {self.lighting_mode}, Dimmer: {int(self.dimmer_level * 100)}%", level="DEBUG")
-            
-            if self.lighting_mode == "off":
-                # Turn off all lights
-                for light in self.light_directions.keys():
-                    if self.get_state(light) == "on":
-                        self.call_service("light/turn_off", entity_id=light)
+            # Skip all updates when in "off" or "on" mode - allows full manual control
+            if self.lighting_mode in ("off", "on"):
+                self.log(f"{self.lighting_mode.capitalize()} mode - skipping update", level="DEBUG")
                 return
-            elif self.lighting_mode == "sun":
+            
+            # Check if Hue Sync Box is active
+            if self.is_hue_sync_active():
+                self.log("Hue Sync Box is active - pausing celestial lighting", level="INFO")
+                return
+            
+            # Get sun elevation for automatic mode switching
+            sun_elevation = float(self.get_state("sun.sun", attribute="elevation"))
+            
+            # Automatic mode switching based on sun position
+            # Only auto-switch between sun/moon, never touch "off" mode
+            if self.lighting_mode != "off" and not self.skip_next_auto_correct:
+                # Always correct to the appropriate mode based on time of day
+                if sun_elevation > -6:
+                    # Daytime - should be sun mode
+                    if self.lighting_mode != "sun":
+                        self.log(f"Auto-correcting to SUN mode (elevation: {sun_elevation:.1f}°)")
+                        self.lighting_mode = "sun"
+                else:
+                    # Nighttime - should be moon mode
+                    if self.lighting_mode != "moon":
+                        self.log(f"Auto-correcting to MOON mode (elevation: {sun_elevation:.1f}°)")
+                        self.lighting_mode = "moon"
+            
+            # Clear the skip flag after using it
+            if self.skip_next_auto_correct:
+                self.skip_next_auto_correct = False
+            
+            self.log(f"Update lights - Mode: {self.lighting_mode}", level="DEBUG")
+            
+            if self.lighting_mode == "sun":
                 # Get sun position from Home Assistant
-                sun_elevation = float(self.get_state("sun.sun", attribute="elevation"))
                 sun_azimuth = float(self.get_state("sun.sun", attribute="azimuth"))
                 self.log(f"Sun position - Elevation: {sun_elevation:.1f}°, Azimuth: {sun_azimuth:.1f}°", level="DEBUG")
                 self.update_sun_lighting(sun_elevation, sun_azimuth)
@@ -191,15 +307,14 @@ class CelestialLighting(hass.Hass):
         base_brightness_pct = self.calculate_sun_brightness(elevation)
         base_brightness = int(base_brightness_pct * 255 / 100)
         
-        # Apply dimmer level multiplier
-        base_brightness = int(base_brightness * self.dimmer_level)
+        # No dimmer - use full calculated brightness
         
         # Calculate directional brightness for each light
         brightness_map = self.calculate_directional_brightness(base_brightness, azimuth)
         
-        # Calculate actual brightness being applied
+        # Log brightness being applied
         actual_brightness_pct = int((base_brightness * 100) / 255)
-        self.log(f"Sun lighting - Kelvin: {kelvin}K, Base: {base_brightness_pct:.1f}% × Dimmer: {int(self.dimmer_level * 100)}% = {actual_brightness_pct}% actual, Azimuth: {azimuth:.1f}°")
+        self.log(f"Sun lighting - Kelvin: {kelvin}K, Brightness: {actual_brightness_pct}%, Azimuth: {azimuth:.1f}°")
         
         # Find the brightest light(s) for logging
         max_brightness = max(brightness_map.values())
@@ -229,7 +344,7 @@ class CelestialLighting(hass.Hass):
                     )
     
     def update_moon_lighting(self):
-        """Update lights based on moon position - only light 1-2 closest bulbs"""
+        """Update lights based on moon position - only light ONE closest bulb"""
         # Calculate moon position and phase
         moon_data = self.get_moon_position()
         altitude = moon_data["altitude"]
@@ -244,32 +359,33 @@ class CelestialLighting(hass.Hass):
         if not rgb:
             rgb = self.calculate_moon_color(altitude, phase)
         
-        # Moon brightness: 60% of sun brightness, adjusted by dimmer
-        base_brightness = int(255 * 0.6 * self.dimmer_level)  # 60% of full brightness
+        # Moon brightness: 40% of full brightness (reduced for subtler effect)
+        base_brightness = int(255 * 0.4)  # 40% of full brightness
         
-        # Find the 1-2 closest bulbs to moon position
-        light_alignments = {}
+        # Find the single closest bulb to moon position
+        closest_light = None
+        best_alignment = 0
+        
         for light, light_azimuth in self.light_directions.items():
-            alignment = self.calculate_azimuth_alignment(light_azimuth, azimuth)
-            light_alignments[light] = alignment
+            # Calculate angular difference
+            diff = abs(light_azimuth - azimuth)
+            if diff > 180:
+                diff = 360 - diff
+            
+            # Calculate alignment (inverse of difference)
+            alignment = 1.0 - (diff / 180)
+            
+            if alignment > best_alignment:
+                best_alignment = alignment
+                closest_light = light
         
-        # Sort by alignment and get top 2
-        sorted_lights = sorted(light_alignments.items(), key=lambda x: x[1], reverse=True)
-        closest_lights = sorted_lights[:2]  # Get top 2 aligned lights
-        
-        # Only light the closest 1-2 bulbs if they're reasonably aligned
-        lights_to_activate = []
-        for light, alignment in closest_lights:
-            if alignment > 0.5:  # Only if more than 50% aligned
-                lights_to_activate.append(light)
-        
-        self.log(f"Moon lighting - RGB: {rgb}, Base: 60% × Dimmer: {int(self.dimmer_level * 100)}% = {int(base_brightness * 100 / 255)}% actual")
-        self.log(f"Moon facing lights: {', '.join(lights_to_activate)}")
+        self.log(f"Moon lighting - RGB: {rgb}, Brightness: {int(base_brightness * 100 / 255)}%")
+        self.log(f"Moon facing light: {closest_light}")
         
         # Update all lights
         for light in self.light_directions.keys():
-            if light in lights_to_activate:
-                # Turn on closest lights
+            if light == closest_light:
+                # Turn on only the closest light
                 self.call_service("light/turn_on",
                     entity_id=light,
                     rgb_color=rgb,
@@ -317,13 +433,19 @@ class CelestialLighting(hass.Hass):
         # Clamp elevation to valid range
         elevation = max(-10, min(90, elevation))
         
-        # Map elevation (-10 to 90) to brightness (20% to 100%)
-        # Use cosine curve for more natural transition
+        # Map elevation to FULL brightness range for maximum contrast
+        # Higher sun = brighter base to maximize directional effect
         if elevation <= 0:
-            return 20.0
+            return 30.0  # Even at horizon, use 30% base for some contrast
+        elif elevation <= 15:
+            # Dawn/dusk: 30% to 60%
+            return 30 + (30 * (elevation / 15))
+        elif elevation <= 45:
+            # Morning/afternoon: 60% to 90%
+            return 60 + (30 * ((elevation - 15) / 30))
         else:
-            # Smooth curve from 20% to 100%
-            return 20 + (80 * (elevation / 90))
+            # High sun: 90% to 100% - maximum brightness for dramatic shadows
+            return 90 + (10 * ((elevation - 45) / 45))
     
     def get_moon_position(self) -> Dict[str, float]:
         """Calculate current moon position and phase using ephem"""
@@ -492,66 +614,33 @@ class CelestialLighting(hass.Hass):
         # Button press cycles through modes (short_release is the actual button release)
         if event_type in ["short_release", "click", "button_1_press", "button_1_click", "on"]:
             self.cycle_lighting_mode()
-        # Rotation adjusts brightness (only respond to "start" event, ignore "repeat")
-        elif event_type == "start" and subtype in ["clock_wise", "counter_clock_wise"]:
-            # Determine rotation direction
-            if subtype == "counter_clock_wise":
-                direction = -1
-            else:
-                direction = 1
-            self.handle_dimmer_rotation({"direction": direction})
+        # Rotation events - no longer used
+        elif event_type in ["start", "repeat"] and subtype in ["clock_wise", "counter_clock_wise"]:
+            # Ignore rotation events since dimming is disabled
+            pass
     
     def cycle_lighting_mode(self):
-        """Cycle through lighting modes: sun -> moon -> off -> sun"""
-        modes = ["sun", "moon", "off"]
-        current_index = modes.index(self.lighting_mode)
+        """Cycle through lighting modes: sun -> moon -> on -> off -> sun"""
+        modes = ["sun", "moon", "on", "off"]
+        current_index = modes.index(self.lighting_mode) if self.lighting_mode in modes else 0
         self.lighting_mode = modes[(current_index + 1) % len(modes)]
         
-        # Reset dimmer to 100% when changing modes (optional behavior)
-        # Comment out these lines if you want dimmer to persist across mode changes
-        if self.manual_override:
-            self.log(f"Resetting dimmer to 100% (was {int(self.dimmer_level * 100)}%)")
-            self.dimmer_level = 1.0
-            self.manual_override = False
-        
         self.log(f"Lighting mode changed to: {self.lighting_mode.upper()}")
+        
+        # Set flag to skip auto-correction on the next update
+        self.skip_next_auto_correct = True
         
         # Flash lights to indicate mode
         if self.lighting_mode == "sun":
             self.flash_lights(1, [255, 200, 100])  # Warm white flash
         elif self.lighting_mode == "moon":
             self.flash_lights(1, [100, 100, 255])  # Blue flash
+        elif self.lighting_mode == "on":
+            self.flash_lights(1, [0, 255, 0])  # Green flash
         elif self.lighting_mode == "off":
             self.flash_lights(1, [255, 0, 0])  # Red flash
         
-        # Immediately update lights
-        self.update_lights({})
-    
-    def handle_dimmer_rotation(self, data):
-        """Handle dimmer rotation to adjust dimmer level"""
-        # Get rotation direction
-        direction = data.get("direction", 0)
-        
-        if direction == 0:
-            return
-        
-        # Mark that user has manually adjusted
-        self.manual_override = True
-            
-        # Adjust dimmer level with 5% steps for noticeable changes
-        step = 0.05  # 5% per click
-        
-        if direction > 0:
-            self.dimmer_level = min(1.0, self.dimmer_level + step)
-        else:
-            self.dimmer_level = max(0.1, self.dimmer_level - step)
-        
-        # Round to nearest 5% for cleaner values
-        self.dimmer_level = round(self.dimmer_level * 20) / 20
-        
-        self.log(f"Dimmer adjusted to: {int(self.dimmer_level * 100)}% (manual override active)")
-        
-        # Immediately update lights with new brightness
+        # Immediately update lights to show the new mode
         self.update_lights({})
     
     def flash_lights(self, count: int, color: List[int]):
@@ -591,6 +680,51 @@ class CelestialLighting(hass.Hass):
             
             if i < count - 1:
                 self.run_in(lambda *args: None, 0.3)
+    
+    async def serve_api_status(self, request, kwargs):
+        """API endpoint to get current system status"""
+        try:
+            now = datetime.now()
+            
+            # Calculate countdown to next update
+            seconds_until_update = 0
+            if self.next_update_time:
+                delta = self.next_update_time - now
+                seconds_until_update = max(0, int(delta.total_seconds()))
+            
+            # Get sun position
+            sun_elevation = float(self.get_state("sun.sun", attribute="elevation") or 0)
+            sun_azimuth = float(self.get_state("sun.sun", attribute="azimuth") or 0)
+            
+            # Get moon position
+            self.observer.date = ephem.now()
+            moon = ephem.Moon()
+            moon.compute(self.observer)
+            
+            response_data = {
+                "mode": self.lighting_mode,
+                "update_interval": self.update_interval,
+                "seconds_until_update": seconds_until_update,
+                "last_update": self.last_update_time.isoformat() if self.last_update_time else None,
+                "next_update": self.next_update_time.isoformat() if self.next_update_time else None,
+                "paused": self.lighting_mode in ("off", "on"),
+                "sun": {
+                    "elevation": sun_elevation,
+                    "azimuth": sun_azimuth
+                },
+                "moon": {
+                    "altitude": math.degrees(moon.alt),
+                    "azimuth": math.degrees(moon.az),
+                    "phase": moon.phase
+                },
+                "lights_count": len(self.light_directions),
+                "timestamp": now.isoformat()
+            }
+            
+            return web.json_response(response_data)
+        except Exception as e:
+            self.log(f"API error: {e}", level="ERROR")
+            return web.json_response({"error": str(e)}, status=500)
     
     def terminate(self):
         """Cleanup when app is stopped"""

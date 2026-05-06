@@ -99,7 +99,32 @@ celestial_lighting:
 3. Install dependencies: `pip install appdaemon ephem`
 4. Use Samba share or SSH for file transfer to HA Green
 
-### Testing
+### Local Testing (No Home Assistant Required)
+
+Run the visualization UI locally with simulated data:
+
+```bash
+# Install dependencies
+uv sync
+
+# Run the local test server
+python local_test_server.py
+```
+
+Then open **http://localhost:5050** in your browser.
+
+#### Local Test Features
+- **Real-time sun/moon positions** calculated from current time and Seattle location
+- **Virtual Aurora Button** - click to cycle through modes (Sun → Moon → Off)
+- **Manual Sun Position Override** - drag sliders to test any sun position
+- **Live updates** every second
+
+#### Testing the Directional Lighting
+1. Enable "Manual sun position override"
+2. Drag the Azimuth slider to see lights brighten/dim based on sun direction
+3. Drag the Elevation slider to see color temperature change (warm at horizon, cool at zenith)
+
+### Testing with Home Assistant
 - Use AppDaemon's built-in logging
 - Monitor via HA Developer Tools → Events
 - Test with time simulation in AppDaemon
@@ -159,6 +184,30 @@ kelvin = 2000 + (elevation + 10) * 45
 - **Memory**: ~20MB for AppDaemon + app
 - **Network**: REST API calls every 60 seconds
 - **Latency**: <100ms response to Aurora events
+
+## Visualization Dashboard
+
+A live-updating web UI displays the current state of all lights in a compass-style diagram.
+
+### Accessing the Dashboard
+After deployment, access the visualization at:
+```
+http://<appdaemon-ip>:5050/app/celestial
+```
+
+### Features
+- **Compass Layout**: 8 lights arranged in their compass positions (N, NE, E, SE, S, SW, W, NW)
+- **Live Color Display**: Each light circle shows its actual color temperature/RGB
+- **Brightness Visualization**: Circle size and opacity reflect brightness percentage
+- **Celestial Body Indicator**: Sun/moon icon shows current position and direction
+- **Status Bar**: Mode, sun elevation, and azimuth at a glance
+- **Auto-refresh**: Updates every 2 seconds
+
+### API Endpoint
+Get current state as JSON:
+```
+GET http://<appdaemon-ip>:5050/app/celestial/api/state
+```
 
 ## Future Enhancements
 

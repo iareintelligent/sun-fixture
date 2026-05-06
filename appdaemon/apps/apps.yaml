@@ -23,3 +23,49 @@ celestial_lighting:
   location:
     latitude: 47.6763
     longitude: -122.3233
+
+# Visualization Dashboard
+celestial_viz:
+  module: celestial_viz
+  class: CelestialVisualization
+  
+  # Same directional lights as main app
+  directional_lights:
+    N: light.sun_north
+    NE: light.sun_nnw_bulb_2
+    E: light.sun_e_bulb
+    SE: light.sun_ssw_bulb
+    S: light.sun_s_bulb
+    SW: light.sun_ssw_bulb_2
+    W: light.sun_west_bulb
+    NW: light.sun_nnw_bulb
+  
+  # Location for celestial calculations
+  location:
+    latitude: 47.6763
+    longitude: -122.3233
+  
+  # How often the UI polls for updates (seconds)
+  update_interval: 2
+
+# System Dashboard (all-in-one: topology + lights + deploy)
+system_dashboard:
+  module: system_dashboard
+  class: SystemDashboard
+
+  # Same directional lights as main app
+  directional_lights:
+    N: light.sun_north
+    NE: light.sun_nnw_bulb_2
+    E: light.sun_e_bulb
+    SE: light.sun_ssw_bulb
+    S: light.sun_s_bulb
+    SW: light.sun_ssw_bulb_2
+    W: light.sun_west_bulb
+    NW: light.sun_nnw_bulb
+
+  aurora_device_id: "131f93a35892fd3c7a0cc89d3a585d9e"
+
+  location:
+    latitude: 47.6763
+    longitude: -122.3233

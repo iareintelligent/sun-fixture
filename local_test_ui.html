@@ -1,0 +1,942 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Celestial Lighting - Local Test</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            color: #e0e0e0;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            text-align: center;
+            font-size: 1.8em;
+            margin-bottom: 10px;
+            color: #fff;
+            text-shadow: 0 2px 10px rgba(255,200,100,0.3);
+        }
+        
+        .connection-bar {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 15px;
+            padding: 10px 20px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .connection-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.85em;
+        }
+        
+        .connection-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #666;
+        }
+        
+        .connection-dot.connected {
+            background: #4caf50;
+            box-shadow: 0 0 8px rgba(76,175,80,0.6);
+        }
+        
+        .connection-dot.disconnected {
+            background: #ff6b6b;
+        }
+        
+        .connection-btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 15px;
+            font-size: 0.8em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .connection-btn.connect {
+            background: linear-gradient(135deg, #4caf50 0%, #388e3c 100%);
+            color: white;
+        }
+        
+        .connection-btn.disconnect {
+            background: linear-gradient(135deg, #ff6b6b 0%, #d32f2f 100%);
+            color: white;
+        }
+        
+        .connection-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 3px 10px rgba(0,0,0,0.3);
+        }
+        
+        .connection-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .mode-badge {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.75em;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .mode-badge.test {
+            background: #ff6b6b;
+            color: white;
+        }
+        
+        .mode-badge.live {
+            background: #4caf50;
+            color: white;
+        }
+        
+        .status-bar {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 12px;
+            flex-wrap: wrap;
+        }
+        
+        .status-item {
+            text-align: center;
+        }
+        
+        .status-label {
+            font-size: 0.75em;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .status-value {
+            font-size: 1.2em;
+            font-weight: 600;
+            color: #fff;
+        }
+        
+        .mode-sun { color: #ffd700; }
+        .mode-moon { color: #b0c4de; }
+        .mode-on { color: #4caf50; }
+        .mode-off { color: #666; }
+        
+        .visualization {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            margin: 0 auto;
+            aspect-ratio: 1;
+        }
+        
+        .compass-ring {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 90%;
+            height: 90%;
+            border: 2px solid rgba(255,255,255,0.15);
+            border-radius: 50%;
+        }
+        
+        .compass-ring.inner {
+            width: 60%;
+            height: 60%;
+            border-style: dashed;
+            border-color: rgba(255,255,255,0.08);
+        }
+        
+        .compass-labels {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 100%;
+            height: 100%;
+        }
+        
+        .compass-label {
+            position: absolute;
+            font-size: 0.85em;
+            color: rgba(255,255,255,0.4);
+            font-weight: 500;
+        }
+        
+        .compass-label.n { top: 2%; left: 50%; transform: translateX(-50%); }
+        .compass-label.s { bottom: 2%; left: 50%; transform: translateX(-50%); }
+        .compass-label.e { right: 2%; top: 50%; transform: translateY(-50%); }
+        .compass-label.w { left: 2%; top: 50%; transform: translateY(-50%); }
+        
+        .light-container {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 100%;
+            height: 100%;
+            transform: translate(-50%, -50%);
+        }
+        
+        .light {
+            position: absolute;
+            transform: translate(-50%, -50%);
+            transition: all 0.5s ease;
+        }
+        
+        .light-circle {
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            transition: all 0.5s ease;
+            box-shadow: 0 0 30px rgba(255,255,255,0.1);
+            border: 2px solid rgba(255,255,255,0.2);
+        }
+        
+        .light-circle.on {
+            box-shadow: 0 0 40px var(--light-color), 0 0 80px var(--light-color-dim);
+        }
+        
+        .light-circle.off {
+            background: rgba(30,30,40,0.8) !important;
+            box-shadow: none;
+        }
+        
+        .light-direction {
+            font-size: 0.9em;
+            font-weight: 700;
+            color: rgba(0,0,0,0.7);
+            text-shadow: 0 1px 2px rgba(255,255,255,0.3);
+        }
+        
+        .light-circle.off .light-direction {
+            color: rgba(255,255,255,0.3);
+        }
+        
+        .light-brightness {
+            font-size: 0.7em;
+            color: rgba(0,0,0,0.5);
+        }
+        
+        .light-circle.off .light-brightness {
+            color: rgba(255,255,255,0.2);
+        }
+        
+        .celestial-body {
+            position: absolute;
+            transform: translate(-50%, -50%);
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5em;
+            transition: all 1s ease;
+            z-index: 10;
+        }
+        
+        .celestial-body.sun {
+            background: radial-gradient(circle, #fff9c4 0%, #ffeb3b 50%, #ff9800 100%);
+            box-shadow: 0 0 30px #ffeb3b, 0 0 60px #ff9800;
+        }
+        
+        .celestial-body.moon {
+            background: radial-gradient(circle, #fff 0%, #e0e0e0 50%, #b0c4de 100%);
+            box-shadow: 0 0 20px rgba(176,196,222,0.5);
+        }
+        
+        .celestial-body.hidden {
+            opacity: 0.3;
+            transform: translate(-50%, -50%) scale(0.5);
+        }
+        
+        .center-info {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            z-index: 5;
+        }
+        
+        .center-info .fixture-icon {
+            font-size: 2em;
+            margin-bottom: 5px;
+        }
+        
+        .center-info .fixture-label {
+            font-size: 0.7em;
+            color: rgba(255,255,255,0.5);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        
+        /* Control Panel */
+        .control-panel {
+            margin-top: 30px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 12px;
+            padding: 20px;
+        }
+        
+        .control-section {
+            margin-bottom: 20px;
+        }
+        
+        .control-section:last-child {
+            margin-bottom: 0;
+        }
+        
+        .control-section h3 {
+            font-size: 0.85em;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 12px;
+        }
+        
+        .aurora-button {
+            width: 100%;
+            padding: 20px;
+            font-size: 1.2em;
+            font-weight: 600;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        
+        .aurora-button.sun {
+            background: linear-gradient(135deg, #ffd700 0%, #ff9800 100%);
+            color: #333;
+        }
+        
+        .aurora-button.moon {
+            background: linear-gradient(135deg, #5c6bc0 0%, #3949ab 100%);
+            color: #fff;
+        }
+        
+        .aurora-button.on {
+            background: linear-gradient(135deg, #66bb6a 0%, #43a047 100%);
+            color: #fff;
+        }
+        
+        .aurora-button.off {
+            background: linear-gradient(135deg, #424242 0%, #212121 100%);
+            color: #888;
+        }
+        
+        .aurora-button:hover {
+            transform: scale(1.02);
+            box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+        }
+        
+        .aurora-button:active {
+            transform: scale(0.98);
+        }
+        
+        .mode-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        .mode-btn {
+            flex: 1;
+            padding: 10px;
+            border: 2px solid rgba(255,255,255,0.2);
+            background: rgba(255,255,255,0.05);
+            color: #fff;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: all 0.2s;
+        }
+        
+        .mode-btn:hover {
+            background: rgba(255,255,255,0.1);
+        }
+        
+        .mode-btn.active {
+            border-color: #ffd700;
+            background: rgba(255,215,0,0.2);
+        }
+        
+        /* Sun Position Controls */
+        .slider-group {
+            margin-bottom: 15px;
+        }
+        
+        .slider-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            font-size: 0.85em;
+        }
+        
+        .slider-label span:last-child {
+            color: #ffd700;
+            font-weight: 600;
+        }
+        
+        input[type="range"] {
+            width: 100%;
+            height: 8px;
+            border-radius: 4px;
+            background: rgba(255,255,255,0.1);
+            outline: none;
+            -webkit-appearance: none;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #ffd700;
+            cursor: pointer;
+            box-shadow: 0 2px 10px rgba(255,215,0,0.5);
+        }
+        
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .checkbox-group input {
+            width: 20px;
+            height: 20px;
+        }
+        
+        .checkbox-group label {
+            font-size: 0.9em;
+            color: #aaa;
+        }
+        
+        .reset-btn {
+            margin-top: 15px;
+            padding: 10px 20px;
+            background: rgba(255,107,107,0.2);
+            border: 1px solid #ff6b6b;
+            color: #ff6b6b;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85em;
+            transition: all 0.2s;
+        }
+        
+        .reset-btn:hover {
+            background: rgba(255,107,107,0.3);
+        }
+        
+        /* Light List */
+        .light-list {
+            margin-top: 20px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+        }
+        
+        .light-item {
+            background: rgba(255,255,255,0.05);
+            border-radius: 8px;
+            padding: 12px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .light-item-indicator {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        
+        .light-item-info {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .light-item-name {
+            font-size: 0.85em;
+            font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .light-item-details {
+            font-size: 0.7em;
+            color: #888;
+        }
+        
+        .update-time {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 0.75em;
+            color: #666;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: translate(-50%, -50%) scale(1); }
+            50% { transform: translate(-50%, -50%) scale(1.05); }
+        }
+        
+        .celestial-body.sun:not(.hidden) {
+            animation: pulse 4s ease-in-out infinite;
+        }
+        
+        @keyframes flash {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .mode-flash {
+            animation: flash 0.15s ease-in-out 2;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>☀️ Celestial Lighting</h1>
+        
+        <div class="connection-bar">
+            <div class="connection-status">
+                <div class="connection-dot" id="connection-dot"></div>
+                <span id="connection-text">Disconnected</span>
+            </div>
+            <span class="mode-badge test" id="mode-badge">Test Mode</span>
+            <button class="connection-btn connect" id="connection-btn" onclick="toggleConnection()">
+                Connect to Home Assistant
+            </button>
+        </div>
+        
+        <div class="status-bar">
+            <div class="status-item">
+                <div class="status-label">Mode</div>
+                <div class="status-value" id="mode">--</div>
+            </div>
+            <div class="status-item">
+                <div class="status-label">Sun Elevation</div>
+                <div class="status-value" id="sun-elevation">--°</div>
+            </div>
+            <div class="status-item">
+                <div class="status-label">Sun Azimuth</div>
+                <div class="status-value" id="sun-azimuth">--°</div>
+            </div>
+        </div>
+        
+        <div class="visualization">
+            <div class="compass-ring"></div>
+            <div class="compass-ring inner"></div>
+            <div class="compass-labels">
+                <span class="compass-label n">N</span>
+                <span class="compass-label s">S</span>
+                <span class="compass-label e">E</span>
+                <span class="compass-label w">W</span>
+            </div>
+            <div class="center-info">
+                <div class="fixture-icon">💡</div>
+                <div class="fixture-label">Sun Fixture</div>
+            </div>
+            <div class="light-container" id="lights-container"></div>
+            <div class="celestial-body sun" id="celestial-body">☀️</div>
+        </div>
+        
+        <div class="control-panel">
+            <div class="control-section">
+                <h3>🎛️ Virtual Aurora Button (Click to cycle modes)</h3>
+                <button class="aurora-button sun" id="aurora-btn" onclick="cycleMode()">
+                    <span id="aurora-icon">☀️</span>
+                    <span id="aurora-text">Sun Mode</span>
+                </button>
+                <div class="mode-buttons">
+                    <button class="mode-btn" onclick="setMode('sun')">☀️ Sun</button>
+                    <button class="mode-btn" onclick="setMode('moon')">🌙 Moon</button>
+                    <button class="mode-btn" onclick="setMode('on')">💡 On</button>
+                    <button class="mode-btn" onclick="setMode('off')">⭕ Off</button>
+                </div>
+            </div>
+            
+            <div class="control-section">
+                <h3>🌞 Manual Sun Position (Testing)</h3>
+                <div class="checkbox-group">
+                    <input type="checkbox" id="manual-override" onchange="toggleManualOverride()">
+                    <label for="manual-override">Enable manual sun position override</label>
+                </div>
+                <div id="manual-controls" style="display: none; margin-top: 15px;">
+                    <div class="slider-group">
+                        <div class="slider-label">
+                            <span>Azimuth (Direction)</span>
+                            <span id="azimuth-value">180°</span>
+                        </div>
+                        <input type="range" id="azimuth-slider" min="0" max="360" value="180" oninput="updateManualPosition()">
+                    </div>
+                    <div class="slider-group">
+                        <div class="slider-label">
+                            <span>Elevation (Height)</span>
+                            <span id="elevation-value">45°</span>
+                        </div>
+                        <input type="range" id="elevation-slider" min="-10" max="90" value="45" oninput="updateManualPosition()">
+                    </div>
+                    <button class="reset-btn" onclick="resetToRealTime()">Reset to Real-Time</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="light-list" id="light-list"></div>
+        
+        <div class="update-time">Last update: <span id="last-update">--</span></div>
+    </div>
+    
+    <script>
+        const POLL_INTERVAL = 1000; // Poll every second for responsive testing
+        let manualOverride = false;
+        let isConnected = false;
+        let isConnecting = false;
+        
+        function azimuthToPosition(azimuth, radius = 42) {
+            const rad = (azimuth - 90) * (Math.PI / 180);
+            const x = 50 + radius * Math.cos(rad);
+            const y = 50 + radius * Math.sin(rad);
+            return { x, y };
+        }
+        
+        function rgbToString(rgb) {
+            return `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
+        }
+        
+        function rgbToDimString(rgb, factor = 0.3) {
+            return `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${factor})`;
+        }
+        
+        function updateVisualization(data) {
+            const container = document.getElementById('lights-container');
+            const listContainer = document.getElementById('light-list');
+            
+            container.innerHTML = '';
+            listContainer.innerHTML = '';
+            
+            // Update status bar
+            const mode = data.celestial.mode;
+            const modeEl = document.getElementById('mode');
+            modeEl.textContent = mode.toUpperCase();
+            modeEl.className = `status-value mode-${mode}`;
+            
+            document.getElementById('sun-elevation').textContent = 
+                data.celestial.sun.elevation.toFixed(1) + '°';
+            document.getElementById('sun-azimuth').textContent = 
+                data.celestial.sun.azimuth.toFixed(1) + '°';
+            
+            // Update Aurora button
+            updateAuroraButton(mode);
+            
+            // Update celestial body position
+            const celestialBody = document.getElementById('celestial-body');
+            const celestialPos = azimuthToPosition(data.celestial.sun.azimuth, 38);
+            celestialBody.style.left = celestialPos.x + '%';
+            celestialBody.style.top = celestialPos.y + '%';
+            
+            if (mode === 'sun') {
+                celestialBody.className = 'celestial-body sun';
+                celestialBody.innerHTML = '☀️';
+            } else if (mode === 'moon') {
+                celestialBody.className = 'celestial-body moon';
+                celestialBody.innerHTML = '🌙';
+                // Position moon
+                if (data.celestial.moon) {
+                    const moonPos = azimuthToPosition(data.celestial.moon.azimuth, 38);
+                    celestialBody.style.left = moonPos.x + '%';
+                    celestialBody.style.top = moonPos.y + '%';
+                }
+            } else {
+                celestialBody.className = 'celestial-body sun hidden';
+                celestialBody.innerHTML = '⭕';
+            }
+            
+            // Render lights
+            data.lights.forEach(light => {
+                const pos = azimuthToPosition(light.azimuth, 38);
+                const isOn = light.state === 'on' && light.brightness > 0;
+                const color = rgbToString(light.rgb);
+                const dimColor = rgbToDimString(light.rgb, 0.3);
+                
+                const lightEl = document.createElement('div');
+                lightEl.className = 'light';
+                lightEl.style.left = pos.x + '%';
+                lightEl.style.top = pos.y + '%';
+                
+                const opacity = isOn ? 0.3 + (light.brightness_pct / 100) * 0.7 : 0.2;
+                const scale = isOn ? 0.8 + (light.brightness_pct / 100) * 0.4 : 0.8;
+                
+                lightEl.innerHTML = `
+                    <div class="light-circle ${isOn ? 'on' : 'off'}" 
+                         style="background: ${isOn ? color : 'rgba(30,30,40,0.8)'};
+                                --light-color: ${color};
+                                --light-color-dim: ${dimColor};
+                                transform: scale(${scale});
+                                opacity: ${opacity};">
+                        <span class="light-direction">${light.direction}</span>
+                        <span class="light-brightness">${light.brightness_pct}%</span>
+                    </div>
+                `;
+                container.appendChild(lightEl);
+                
+                // List item
+                const listItem = document.createElement('div');
+                listItem.className = 'light-item';
+                listItem.innerHTML = `
+                    <div class="light-item-indicator" 
+                         style="background: ${isOn ? color : '#333'}; 
+                                box-shadow: ${isOn ? '0 0 10px ' + dimColor : 'none'};"></div>
+                    <div class="light-item-info">
+                        <div class="light-item-name">${light.direction} - ${light.entity_id.split('.')[1]}</div>
+                        <div class="light-item-details">
+                            ${isOn ? `${light.brightness_pct}% · ${light.kelvin}K` : 'Off'}
+                        </div>
+                    </div>
+                `;
+                listContainer.appendChild(listItem);
+            });
+            
+            document.getElementById('last-update').textContent = 
+                new Date(data.celestial.timestamp).toLocaleTimeString();
+            
+            // Update connection status
+            if (data.connection) {
+                updateConnectionUI(data.connection.connected);
+            }
+        }
+        
+        function updateAuroraButton(mode) {
+            const btn = document.getElementById('aurora-btn');
+            const icon = document.getElementById('aurora-icon');
+            const text = document.getElementById('aurora-text');
+            
+            btn.className = `aurora-button ${mode}`;
+            
+            if (mode === 'sun') {
+                icon.textContent = '☀️';
+                text.textContent = 'Sun Mode - Click to switch to Moon';
+            } else if (mode === 'moon') {
+                icon.textContent = '🌙';
+                text.textContent = 'Moon Mode - Click to switch to On';
+            } else if (mode === 'on') {
+                icon.textContent = '💡';
+                text.textContent = 'On Mode - Click to switch to Off';
+            } else {
+                icon.textContent = '⭕';
+                text.textContent = 'Off Mode - Click to switch to Sun';
+            }
+        }
+        
+        async function cycleMode() {
+            const btn = document.getElementById('aurora-btn');
+            btn.classList.add('mode-flash');
+            setTimeout(() => btn.classList.remove('mode-flash'), 300);
+            
+            try {
+                await fetch('/api/mode', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'cycle' })
+                });
+                fetchState();
+            } catch (error) {
+                console.error('Error cycling mode:', error);
+            }
+        }
+        
+        async function setMode(mode) {
+            try {
+                await fetch('/api/mode', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'set', mode: mode })
+                });
+                fetchState();
+            } catch (error) {
+                console.error('Error setting mode:', error);
+            }
+        }
+        
+        function toggleManualOverride() {
+            manualOverride = document.getElementById('manual-override').checked;
+            document.getElementById('manual-controls').style.display = manualOverride ? 'block' : 'none';
+            
+            if (manualOverride) {
+                updateManualPosition();
+            } else {
+                resetToRealTime();
+            }
+        }
+        
+        async function updateManualPosition() {
+            if (!manualOverride) return;
+            
+            const azimuth = parseFloat(document.getElementById('azimuth-slider').value);
+            const elevation = parseFloat(document.getElementById('elevation-slider').value);
+            
+            document.getElementById('azimuth-value').textContent = azimuth + '°';
+            document.getElementById('elevation-value').textContent = elevation + '°';
+            
+            try {
+                await fetch('/api/sun', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ azimuth, elevation })
+                });
+                fetchState();
+            } catch (error) {
+                console.error('Error updating sun position:', error);
+            }
+        }
+        
+        async function resetToRealTime() {
+            document.getElementById('manual-override').checked = false;
+            document.getElementById('manual-controls').style.display = 'none';
+            manualOverride = false;
+            
+            try {
+                await fetch('/api/reset', { method: 'POST' });
+                fetchState();
+            } catch (error) {
+                console.error('Error resetting:', error);
+            }
+        }
+        
+        async function fetchState() {
+            try {
+                const response = await fetch('/api/state');
+                if (!response.ok) throw new Error('Failed to fetch state');
+                const data = await response.json();
+                updateVisualization(data);
+            } catch (error) {
+                console.error('Error fetching state:', error);
+            }
+        }
+        
+        function updateConnectionUI(connected) {
+            isConnected = connected;
+            const dot = document.getElementById('connection-dot');
+            const text = document.getElementById('connection-text');
+            const btn = document.getElementById('connection-btn');
+            const badge = document.getElementById('mode-badge');
+            
+            if (connected) {
+                dot.className = 'connection-dot connected';
+                text.textContent = 'Connected to Home Assistant';
+                btn.className = 'connection-btn disconnect';
+                btn.textContent = 'Disconnect';
+                badge.className = 'mode-badge live';
+                badge.textContent = 'Live Mode';
+            } else {
+                dot.className = 'connection-dot disconnected';
+                text.textContent = 'Disconnected';
+                btn.className = 'connection-btn connect';
+                btn.textContent = 'Connect to Home Assistant';
+                badge.className = 'mode-badge test';
+                badge.textContent = 'Test Mode';
+            }
+            btn.disabled = isConnecting;
+        }
+        
+        async function toggleConnection() {
+            const btn = document.getElementById('connection-btn');
+            
+            if (isConnected) {
+                // Disconnect
+                try {
+                    await fetch('/api/disconnect', { method: 'POST' });
+                    updateConnectionUI(false);
+                } catch (error) {
+                    console.error('Error disconnecting:', error);
+                }
+            } else {
+                // Connect
+                isConnecting = true;
+                btn.disabled = true;
+                btn.textContent = 'Connecting...';
+                
+                try {
+                    const response = await fetch('/api/connect', { method: 'POST' });
+                    const result = await response.json();
+                    
+                    if (result.connected) {
+                        updateConnectionUI(true);
+                    } else {
+                        alert('Failed to connect: ' + (result.error || 'Unknown error'));
+                        updateConnectionUI(false);
+                    }
+                } catch (error) {
+                    console.error('Error connecting:', error);
+                    alert('Connection failed: ' + error.message);
+                    updateConnectionUI(false);
+                }
+                
+                isConnecting = false;
+            }
+            
+            fetchState();
+        }
+        
+        // Check initial connection status
+        async function checkConnectionStatus() {
+            try {
+                const response = await fetch('/api/connection');
+                const status = await response.json();
+                updateConnectionUI(status.connected);
+            } catch (error) {
+                updateConnectionUI(false);
+            }
+        }
+        
+        // Initial fetch
+        checkConnectionStatus();
+        fetchState();
+        
+        // Poll for updates
+        setInterval(fetchState, POLL_INTERVAL);
+    </script>
+</body>
+</html>
