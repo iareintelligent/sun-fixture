@@ -1,5 +1,9 @@
 # Agent Instructions
 
+> **Project:** Bungalow Fortress Automation — a Home Assistant–backed device management system with a multi-floor isometric floorplan dashboard. The original sun-fixture Celestial Lighting System is one managed subsystem under this umbrella (see `sun-fixture/`).
+>
+> **Read first:** [`docs/mission.md`](docs/mission.md) for scope, [`CLAUDE.md`](CLAUDE.md) for operating principles, and the latest file in `docs/working-notes/` for where the previous session left off.
+
 This project uses **bd** (beads) for issue tracking. Run `bd onboard` to get started.
 
 ## Quick Reference

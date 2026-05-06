@@ -1,229 +1,73 @@
-# Celestial Lighting System
+# Bungalow Fortress Automation
 
-An AppDaemon application for Home Assistant that automatically adjusts Philips Hue lights based on sun and moon positions, creating natural lighting that follows celestial patterns.
+A Home Assistant–backed device management system for the home, with a multi-floor isometric floorplan dashboard as its primary visualization. The umbrella project under which the existing **sun-fixture** AppDaemon application is one managed subsystem among many.
 
-## Overview
+## What this is
 
-This system runs on Home Assistant Green and provides:
-- **Automatic lighting control** based on real-time sun/moon positions
-- **Natural color temperature** transitions throughout the day
-- **Moon phase-aware** nighttime lighting with subtle colors
-- **Physical override** via Lutron Aurora dimmer (Friends of Hue device)
-- **Smart scheduling** with 60-second update intervals for smooth transitions
+The end-state target is a wall-mounted tablet (and phone view) that:
 
-## Architecture
+- Shows the home as a fixed-angle isometric floorplan, one composite per floor.
+- Renders every Philips Hue light in its true location, with live color and brightness.
+- Lets the user view, unassign, reassign, and define new behaviors mapping inputs (Lutron dimmers, motion sensors) to outputs (Hue lights, Nest thermostat, sun-fixture, media surfaces).
+- Provides a fallback traditional dashboard for guests and emergencies.
 
-The system consists of:
-- **AppDaemon Add-on**: Python runtime environment for Home Assistant
-- **Celestial App**: Main Python application with astronomical calculations
-- **Home Assistant Integration**: WebSocket connection for real-time control
-- **Philips Hue Bridge**: Zigbee communication with bulbs and Aurora dimmer
-- **Ephem Library**: Precise moon position and phase calculations
+Read [`docs/mission.md`](docs/mission.md) for the full scope. Read [`docs/decisions/0001-visual-direction.md`](docs/decisions/0001-visual-direction.md) for the rendering approach. The seed prompt that started this project is preserved in the user's conversation history; the canonical written record lives in `docs/`.
 
-## Features
+## Current status
 
-### Daytime Mode (Sun Above Horizon)
-- Color temperature follows sun elevation (2000K-6500K)
-- Brightness adjusts based on sun position
-- Warm sunrise/sunset colors
-- Cool midday light
+**Scaffolded.** Directory tree in place, mission docs written, ADR-0001 accepted, beads epic graph populated. **No implementation has begun.** No room/light inventory yet; no Sweet Home 3D model; no renders, masks, or composites; no working YAML beyond placeholders.
 
-### Nighttime Mode (Sun Below Horizon)
-- Moon phase determines color and intensity
-- Subtle RGB colors based on moon altitude
-- Automatic dimming for late night
-- New moon = minimal light
+The next concrete steps live in the beads issue graph — see `bd ready` to find them.
 
-### Aurora Dimmer Integration
-- **Click**: Toggle override mode on/off
-- **Rotate**: Manual brightness control when in override
-- **Auto-resume**: Returns to celestial control when override disabled
+## Repository layout
 
-## Installation
-
-### Prerequisites
-- Home Assistant Green (or any HA installation)
-- AppDaemon Add-on installed
-- Philips Hue Bridge configured
-- Hue lights and (optionally) Aurora dimmer paired
-
-### Setup Steps
-
-1. **Install AppDaemon Add-on**
-   - Navigate to Home Assistant Settings → Add-ons
-   - Search for "AppDaemon"
-   - Install and start the add-on
-
-2. **Configure AppDaemon**
-   - Access AppDaemon configuration
-   - Ensure Python packages are available: `ephem`
-
-3. **Deploy Celestial App**
-   - Copy `celestial.py` to `/config/appdaemon/apps/`
-   - Create `apps.yaml` configuration (see Configuration section)
-
-4. **Configure Home Assistant**
-   - Ensure Sun integration is enabled
-   - Configure latitude/longitude in HA configuration
-   - Set up Hue integration with your bridge
-
-## Configuration
-
-### apps.yaml
-```yaml
-celestial_lighting:
-  module: celestial
-  class: CelestialLighting
-  lights:
-    - light.living_room
-    - light.bedroom
-    - light.kitchen
-  aurora_device_id: "00:17:88:01:XX:XX:XX:XX-XX-XXXX"
-  update_interval: 60  # seconds
-  location:
-    latitude: 37.7749
-    longitude: -122.4194
+```
+.
+├── README.md                  ← you are here
+├── CLAUDE.md                  ← operating instructions for AI sessions
+├── AGENTS.md                  ← bd workflow rules + non-interactive shell rules
+├── docs/                      ← mission, decisions, working notes, inventories
+│   ├── mission.md
+│   ├── decisions/             ← ADR-format decision records
+│   ├── working-notes/         ← session-by-session decisions + open questions
+│   ├── room-inventory.md      ← (template) every room and the lights in it
+│   ├── device-inventory.md    ← (template) every input and output device
+│   ├── style-guide.md         ← (stub) populated during pilot floor
+│   ├── photography-protocol.md← (stub) populated when modeling needs photos
+│   └── design-reference.md    ← user-curated visual references
+├── assets/                    ← SH3D models, photos, renders, masks, composites
+├── config/                    ← Lovelace YAML, HA packages, themes
+├── scripts/                   ← helper scripts (added when needed)
+└── sun-fixture/               ← existing celestial-lighting subsystem (kept)
 ```
 
-### Configuration Parameters
-- `lights`: List of Hue light entities to control
-- `aurora_device_id`: Device ID from Hue bridge (optional)
-- `update_interval`: Seconds between updates (default: 60)
-- `location`: Override HA's location if needed
+## How to resume work in a new session
 
-## Development
+1. `cd ~/code/sun-fixture` (the directory may eventually be renamed `bungalow-fortress-automation` — see working notes).
+2. `bd ready --json` to see unblocked work.
+3. Read `docs/mission.md` and `docs/decisions/` to refresh context.
+4. Read the latest file in `docs/working-notes/` to see where the previous session left off.
+5. Follow `AGENTS.md` for the work flow (claim, work, close, push).
 
-### Local Development Setup
-1. Clone repository to development machine
-2. Set up Python virtual environment
-3. Install dependencies: `pip install appdaemon ephem`
-4. Use Samba share or SSH for file transfer to HA Green
+## What an AI assistant can vs can't do here
 
-### Local Testing (No Home Assistant Required)
+**Can:**
+- Read code, design YAML, write Python, write docs, scaffold structure, draft procedures.
+- Decompose epics into tasks in bd, link discovered work, manage the issue graph.
+- Write specifications and checklists for things humans must execute (e.g., a Sweet Home 3D modeling checklist, a Photoshop masking procedure).
 
-Run the visualization UI locally with simulated data:
+**Can't (these are human-only):**
+- Take photos of rooms.
+- Build the Sweet Home 3D model itself (can write the modeling checklist; can't open SH3D and click).
+- Paint Photoshop masks (can write the procedure; can't run Photoshop).
+- Run AI image generation locally (if used).
+- Audit the Hue Bridge in person.
+- Deploy YAML to the Home Assistant instance.
+- Provision the wall tablet.
+- Rename `~/code/sun-fixture/` → `~/code/bungalow-fortress-automation/` (a filesystem rename the user can do when convenient).
 
-```bash
-# Install dependencies
-uv sync
+When an AI session hits one of these, the right move is to label the bd task `human-only`, surface it clearly, and continue with whatever else is unblocked.
 
-# Run the local test server
-python local_test_server.py
-```
+## Sun-fixture subsystem
 
-Then open **http://localhost:5050** in your browser.
-
-#### Local Test Features
-- **Real-time sun/moon positions** calculated from current time and Seattle location
-- **Virtual Aurora Button** - click to cycle through modes (Sun → Moon → Off)
-- **Manual Sun Position Override** - drag sliders to test any sun position
-- **Live updates** every second
-
-#### Testing the Directional Lighting
-1. Enable "Manual sun position override"
-2. Drag the Azimuth slider to see lights brighten/dim based on sun direction
-3. Drag the Elevation slider to see color temperature change (warm at horizon, cool at zenith)
-
-### Testing with Home Assistant
-- Use AppDaemon's built-in logging
-- Monitor via HA Developer Tools → Events
-- Test with time simulation in AppDaemon
-
-### File Structure
-```
-/config/appdaemon/
-├── apps/
-│   ├── celestial.py       # Main application
-│   └── apps.yaml          # Configuration
-├── logs/
-│   └── appdaemon.log     # Runtime logs
-└── compiled/             # AppDaemon cache
-```
-
-## Algorithm Details
-
-### Sun Position → Color Temperature
-```python
-# Elevation ranges from -10° to 90°
-# Color temperature from 2000K (horizon) to 6500K (zenith)
-kelvin = 2000 + (elevation + 10) * 45
-```
-
-### Moon Position → RGB Color
-- Phase determines intensity (0-100%)
-- Altitude affects color saturation
-- Blue-white for high moon, amber for low moon
-
-### Brightness Calculation
-- Sun: 100% at zenith, 20% at horizon
-- Moon: Scaled by phase percentage
-- Override: Manual control via Aurora
-
-## Troubleshooting
-
-### Common Issues
-
-1. **Lights not responding**
-   - Check AppDaemon logs: `/config/appdaemon/logs/`
-   - Verify Hue bridge connection in HA
-   - Ensure light entities are correct
-
-2. **Aurora dimmer not working**
-   - Verify device ID in configuration
-   - Check Hue event stream in Developer Tools
-   - Ensure dimmer is paired as Friends of Hue device
-
-3. **Incorrect sun/moon positions**
-   - Verify latitude/longitude in HA configuration
-   - Check timezone settings
-   - Ensure system time is correct
-
-## Performance
-
-- **CPU Usage**: Minimal (~1% on HA Green)
-- **Memory**: ~20MB for AppDaemon + app
-- **Network**: REST API calls every 60 seconds
-- **Latency**: <100ms response to Aurora events
-
-## Visualization Dashboard
-
-A live-updating web UI displays the current state of all lights in a compass-style diagram.
-
-### Accessing the Dashboard
-After deployment, access the visualization at:
-```
-http://<appdaemon-ip>:5050/app/celestial
-```
-
-### Features
-- **Compass Layout**: 8 lights arranged in their compass positions (N, NE, E, SE, S, SW, W, NW)
-- **Live Color Display**: Each light circle shows its actual color temperature/RGB
-- **Brightness Visualization**: Circle size and opacity reflect brightness percentage
-- **Celestial Body Indicator**: Sun/moon icon shows current position and direction
-- **Status Bar**: Mode, sun elevation, and azimuth at a glance
-- **Auto-refresh**: Updates every 2 seconds
-
-### API Endpoint
-Get current state as JSON:
-```
-GET http://<appdaemon-ip>:5050/app/celestial/api/state
-```
-
-## Future Enhancements
-
-- [ ] Weather-based adjustments
-- [ ] Circadian rhythm optimization
-- [ ] Multiple location profiles
-- [ ] Vacation/away modes
-- [ ] Integration with other smart home systems
-
-## License
-
-MIT License - See LICENSE file for details
-
-## Support
-
-For issues, questions, or contributions:
-- GitHub Issues: [your-repo-url]
-- Home Assistant Community: [forum-thread]
-- Documentation: See ARCHITECTURE.md for detailed system design
+The original repo was the [sun-fixture](sun-fixture/README.md) Celestial Lighting System: an AppDaemon app driving 8 Hue bulbs in a single fixture in a single room, color-tempering them based on sun and moon position, with a Lutron Aurora dimmer as physical override. It still works and still runs. Under the umbrella, it becomes one of many managed subsystems. See `sun-fixture/README.md` for its own documentation.

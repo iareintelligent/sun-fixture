@@ -1,0 +1,18 @@
+# Floorplan dashboard — main Lovelace YAML for the isometric per-floor view.
+#
+# Status: placeholder. Real content arrives during epic 4 (pilot floor end-to-end pipeline).
+#
+# Expected structure once populated:
+#   - One view per floor (or one view with conditional cards keyed off an
+#     input_select for "active floor", driven by the floor selector rail).
+#   - Picture Elements card per floor:
+#       * image: !include ../../assets/renders/floor-<id>-base.png
+#       * elements: list of mask overlays, each bound to a light.* entity,
+#         with state-driven opacity and color overlay.
+#   - Floor selector: vertical column of clickable text/icon elements
+#     anchored to the left edge.
+#   - Popover triggers: room-shaped invisible elements (or visible "tap to
+#     open" affordances) that show the corresponding popover from
+#     ./popovers/.
+#
+# Reference: docs/decisions/0001-visual-direction.md

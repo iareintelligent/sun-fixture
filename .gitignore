@@ -45,3 +45,13 @@ build/
 # Dolt database files (added by bd init)
 .dolt/
 *.db
+
+# Bungalow Fortress Automation umbrella project additions
+# Photoshop sources are too large for git; keep them in cloud storage instead.
+*.psd
+# Raw camera output (RAW/HEIC) — curated, downsized references only are committed.
+assets/photos/raw/
+# HA secrets bundle (if/when we adopt one).
+secrets.yaml
+# OS junk
+Thumbs.db

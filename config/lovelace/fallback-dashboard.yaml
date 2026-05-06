@@ -1,0 +1,14 @@
+# Fallback dashboard — traditional Mushroom-style Lovelace view.
+#
+# Status: placeholder. Real content arrives during epic 11.
+#
+# Audience: guests, kids, anyone who picks up the wall tablet without context.
+# Goal: turn off all lights in 5 seconds without reading anything.
+#
+# Expected structure once populated:
+#   - One row per room with mushroom-light cards.
+#   - Room-level scene buttons (All On / All Off / Movie / Good Morning).
+#   - A single big "All Off" button at the top of the view.
+#   - Same entities as floorplan-dashboard.yaml; different presentation.
+#
+# Reference: docs/mission.md, "Out of scope" and "Done looks like" sections.
