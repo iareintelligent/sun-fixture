@@ -21,15 +21,15 @@ expect {
 # Update /config/apps/
 send "cd /config/apps/\r"
 expect "# "
-send "wget -O apps.yaml https://raw.githubusercontent.com/iareintelligent/sun-fixture/main/appdaemon/apps/apps.yaml\r"
+send "wget -O apps.yaml https://raw.githubusercontent.com/iareintelligent/sun-fixture/main/sun-fixture/appdaemon/apps/apps.yaml\r"
 expect "# "
-send "wget -O celestial.py https://raw.githubusercontent.com/iareintelligent/sun-fixture/main/appdaemon/apps/celestial.py\r"
+send "wget -O celestial.py https://raw.githubusercontent.com/iareintelligent/sun-fixture/main/sun-fixture/appdaemon/apps/celestial.py\r"
 expect "# "
 send "echo 'Updated /config/apps/'\r"
 expect "# "
 
 # Check if addon_configs directory exists and update it
-send "if \[ -d /addon_configs/a0d7b954_appdaemon/apps/ \]; then cd /addon_configs/a0d7b954_appdaemon/apps/; wget -O apps.yaml https://raw.githubusercontent.com/iareintelligent/sun-fixture/main/appdaemon/apps/apps.yaml; wget -O celestial.py https://raw.githubusercontent.com/iareintelligent/sun-fixture/main/appdaemon/apps/celestial.py; echo 'Updated addon_configs'; fi\r"
+send "if \[ -d /addon_configs/a0d7b954_appdaemon/apps/ \]; then cd /addon_configs/a0d7b954_appdaemon/apps/; wget -O apps.yaml https://raw.githubusercontent.com/iareintelligent/sun-fixture/main/sun-fixture/appdaemon/apps/apps.yaml; wget -O celestial.py https://raw.githubusercontent.com/iareintelligent/sun-fixture/main/sun-fixture/appdaemon/apps/celestial.py; echo 'Updated addon_configs'; fi\r"
 expect "# "
 
 # Restart AppDaemon

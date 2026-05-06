@@ -23,8 +23,8 @@ echo "📦 Updating /config/apps/ ..."
 ssh ${HA_USER}@${HA_HOST} << 'EOF'
 cd /config/apps/
 echo "Fetching latest files from GitHub..."
-wget -q -O apps.yaml https://raw.githubusercontent.com/iareintelligent/sun-fixture/main/appdaemon/apps/apps.yaml
-wget -q -O celestial.py https://raw.githubusercontent.com/iareintelligent/sun-fixture/main/appdaemon/apps/celestial.py
+wget -q -O apps.yaml https://raw.githubusercontent.com/iareintelligent/sun-fixture/main/sun-fixture/appdaemon/apps/apps.yaml
+wget -q -O celestial.py https://raw.githubusercontent.com/iareintelligent/sun-fixture/main/sun-fixture/appdaemon/apps/celestial.py
 echo "✅ /config/apps/ updated"
 ls -la /config/apps/
 EOF
@@ -36,8 +36,8 @@ ssh ${HA_USER}@${HA_HOST} << 'EOF'
 if [ -d "/addon_configs/a0d7b954_appdaemon/apps/" ]; then
     cd /addon_configs/a0d7b954_appdaemon/apps/
     echo "Fetching latest files from GitHub..."
-    wget -q -O apps.yaml https://raw.githubusercontent.com/iareintelligent/sun-fixture/main/appdaemon/apps/apps.yaml
-    wget -q -O celestial.py https://raw.githubusercontent.com/iareintelligent/sun-fixture/main/appdaemon/apps/celestial.py
+    wget -q -O apps.yaml https://raw.githubusercontent.com/iareintelligent/sun-fixture/main/sun-fixture/appdaemon/apps/apps.yaml
+    wget -q -O celestial.py https://raw.githubusercontent.com/iareintelligent/sun-fixture/main/sun-fixture/appdaemon/apps/celestial.py
     echo "✅ /addon_configs/a0d7b954_appdaemon/apps/ updated"
     ls -la /addon_configs/a0d7b954_appdaemon/apps/
 else

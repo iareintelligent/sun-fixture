@@ -6,7 +6,7 @@ echo ""
 
 ssh root@homeassistant.local << 'EOF'
 cd /addon_configs/a0d7b954_appdaemon/apps/
-wget -q -O celestial.py https://raw.githubusercontent.com/iareintelligent/sun-fixture/main/appdaemon/apps/celestial.py
+wget -q -O celestial.py https://raw.githubusercontent.com/iareintelligent/sun-fixture/main/sun-fixture/appdaemon/apps/celestial.py
 echo "✅ Updated celestial.py"
 ha addon restart a0d7b954_appdaemon
 echo "✅ Restarting AppDaemon..."
